@@ -105,8 +105,7 @@ var (
 
 	// Tasks header - no background
 	TasksHeaderStyle = lipgloss.NewStyle().
-				Foreground(ColorTasksHeader).
-				MarginTop(1)
+				Foreground(ColorTasksHeader)
 
 	// Task style - no background
 	TaskStyle = lipgloss.NewStyle().
@@ -123,11 +122,13 @@ var (
 	// Hide completed tasks - no background
 	HideCompletedStyle = lipgloss.NewStyle().
 				Foreground(ColorHideCompleted).
+				Background(ColorBackground).
 				Bold(true)
 
 	// Add new task - no background
 	AddNewTaskStyle = lipgloss.NewStyle().
 			Foreground(ColorAddNewTask).
+			Background(ColorBackground).
 			Bold(true)
 
 	// Menu item style - no background

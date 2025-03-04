@@ -52,26 +52,31 @@ func (t *TimerView) SetFontManager(fontManager *FontManager) {
 
 // Render renders the timer view
 func (t *TimerView) Render() string {
-	// Create a consistent style for all timer elements
-	baseStyle := lipgloss.NewStyle().
-		Background(ColorBoxBackground).
-		Width(t.width - 12)
+	// Display font information if font manager is available
+	var fontInfo string
+	if t.fontManager != nil {
+		fontInfo = lipgloss.NewStyle().
+			Foreground(ColorText).
+			Align(lipgloss.Center).
+			Render("Font: " + t.fontManager.CurrentFont + " (Press F to change)")
+	}
 
-	// Apply this style to each element
-	currentTask := baseStyle.Align(lipgloss.Center).Render(t.renderCurrentTask())
-	timer := baseStyle.Align(lipgloss.Center).Render(t.renderTimer())
-	progressBar := baseStyle.Align(lipgloss.Center).Render(t.renderProgressBar())
-	controls := baseStyle.Align(lipgloss.Center).Render(t.renderControls())
+	// Render each component without background
+	currentTask := t.renderCurrentTask()
+	timer := t.renderTimer()
+	progressBar := t.renderProgressBar()
+	controls := t.renderControls()
 
-	// Join the timer section elements with consistent background
-	timerContent := lipgloss.JoinVertical(lipgloss.Center,
-		currentTask,
-		timer,
-		progressBar,
-		controls,
-	)
+	// Join the timer section elements vertically
+	var components []string
+	if fontInfo != "" {
+		components = append(components, fontInfo)
+	}
+	components = append(components, currentTask, timer, progressBar, controls)
 
-	// The container should already have a consistent background from the joined elements
+	// Join all components without applying background
+	timerContent := lipgloss.JoinVertical(lipgloss.Center, components...)
+
 	return timerContent
 }
 

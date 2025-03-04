@@ -12,6 +12,7 @@ import (
 func main() {
 	// Define command-line flags
 	timerOnly := flag.Bool("timer", false, "Show only the timer component")
+	tasksOnly := flag.Bool("tasks", false, "Show only the task list component")
 	showHelp := flag.Bool("help", false, "Show help information")
 
 	// Parse command-line flags
@@ -33,6 +34,9 @@ func main() {
 	// Set timer-only mode if requested via command-line flag
 	if *timerOnly {
 		app.SetTimerOnlyMode(true)
+	} else if *tasksOnly {
+		// Set task-list-only mode if requested
+		app.SetTaskListOnlyMode(true)
 	}
 
 	// Create a new bubble tea program
