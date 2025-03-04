@@ -48,6 +48,15 @@ type App struct {
 
 	// Selected index for task list
 	selectedIndex int
+
+	// Components
+	timerView *TimerView
+
+	// Debug mode
+	debugMode bool
+
+	// Font manager for rendering big digits
+	fontManager *FontManager
 }
 
 // NewApp creates a new application model
@@ -64,8 +73,18 @@ func NewApp() *App {
 	width := GetTerminalWidth()
 	height := GetTerminalHeight()
 
-	return &App{
-		timer:          model.NewTimer(),
+	timer := model.NewTimer()
+
+	// Initialize the font manager
+	fontManager, err := NewFontManager()
+	if err != nil {
+		// If we can't load fonts, continue with a nil fontManager
+		// The timer component will fall back to the hardcoded digits
+		fontManager = nil
+	}
+
+	app := &App{
+		timer:          timer,
 		taskManager:    model.NewTaskManager(),
 		view:           MainView,
 		width:          width,
@@ -74,7 +93,18 @@ func NewApp() *App {
 		pomodorosInput: pomodorosInput,
 		inputting:      false,
 		selectedIndex:  0,
+		debugMode:      false,
+		fontManager:    fontManager,
 	}
+
+	app.timerView = NewTimerView(timer, width)
+
+	// Set the font manager in the timer view
+	if fontManager != nil {
+		app.timerView.SetFontManager(fontManager)
+	}
+
+	return app
 }
 
 // Init initializes the Bubble Tea program
@@ -102,6 +132,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Update styles with new dimensions
 		UpdateStyles()
+
+		// Update component dimensions
+		a.timerView.SetWidth(a.width)
 
 		return a, nil
 
@@ -190,6 +223,16 @@ func (a *App) updateMainView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if len(tasks) > 0 {
 			selectedTask := tasks[a.selectedIndex%len(tasks)]
 			selectedTask.ToggleComplete()
+		}
+
+	case "d":
+		// Toggle debug mode
+		a.debugMode = !a.debugMode
+
+	case "f":
+		// Toggle through fonts if font manager is available
+		if a.fontManager != nil {
+			a.fontManager.NextFont()
 		}
 	}
 
@@ -284,31 +327,64 @@ func (a *App) mainView() string {
 	builder.WriteString(AppNameStyle.Render("~ pomodoro tracker"))
 	builder.WriteString("\n\n")
 
-	// Main content box
-	boxContent := lipgloss.JoinVertical(lipgloss.Center,
-		// Current task (if any)
-		a.renderCurrentTask(),
+	// If in debug mode, only render the timer component
+	if a.debugMode {
+		builder.WriteString(debugStyle().Render("Debug Mode: Timer Component Only"))
+		builder.WriteString("\n\n")
 
-		// Timer
-		TimerStyle.Render(a.timer.FormatTime()),
+		// Render timer view using the extracted component
+		timerSection := a.timerView.Render()
 
-		// Progress bar
-		RenderProgressBar(a.timer.ProgressPercentage()),
+		// Center the timer horizontally using lipgloss.PlaceHorizontal
+		centeredTimer := lipgloss.PlaceHorizontal(a.width, lipgloss.Center, timerSection)
+		builder.WriteString(centeredTimer)
 
-		// Controls (stop/start button)
-		a.renderTimerControls(),
+		builder.WriteString("\n\n")
 
-		// Divider
-		DividerStyle.Render(strings.Repeat("─", a.width-20)), // Adjust divider length
+		// Center the exit message as well
+		exitMessage := debugStyle().Render("Press [D] to exit debug mode")
+		centeredExitMessage := lipgloss.PlaceHorizontal(a.width, lipgloss.Center, exitMessage)
+		builder.WriteString(centeredExitMessage)
 
-		// Tasks section
-		a.renderTaskList(),
+		return builder.String() // No need for AppStyle here, as we want full width
+	}
 
-		// Task controls
-		a.renderTaskControls(),
-	)
+	// Regular rendering for normal mode
+	// Render timer view using the extracted component
+	timerSection := a.timerView.Render()
 
-	builder.WriteString(BoxStyle.Render(boxContent))
+	// Create divider without background
+	divider := strings.Repeat("─", a.width-20)
+
+	// Create task content
+	tasksContent := a.renderTaskList()
+	taskControls := a.renderTaskControls()
+
+	// Apply background to the remaining content
+	tasksSection := lipgloss.NewStyle().
+		Background(ColorBoxBackground).
+		Width(a.width - 12).
+		Render(tasksContent + taskControls)
+
+	// Apply background to the divider
+	styledDivider := lipgloss.NewStyle().
+		Background(ColorBoxBackground).
+		Width(a.width - 12).
+		Align(lipgloss.Center).
+		Render(DividerStyle.Render(divider))
+
+	// Now apply the background to the entire box content at once
+	boxContent := timerSection + "\n" +
+		styledDivider + "\n" +
+		tasksSection
+
+	// Wrap all content in a single background style
+	renderedBox := BoxStyle.
+		Padding(1, 2).
+		Width(a.width - 8).
+		Render(boxContent)
+
+	builder.WriteString(renderedBox)
 
 	// Bottom menu
 	menuItems := []string{"settings", "statistics", "log in with google"}
@@ -321,23 +397,13 @@ func (a *App) mainView() string {
 	builder.WriteString("\n")
 	builder.WriteString(lipgloss.NewStyle().Align(lipgloss.Center).Width(a.width - 4).Render(menuBar))
 
+	// Debug mode info
+	if !a.debugMode {
+		builder.WriteString("\n")
+		builder.WriteString(debugStyle().Render("Press [D] to enter debug mode"))
+	}
+
 	return AppStyle.Render(builder.String())
-}
-
-// renderCurrentTask renders the current active task (if any)
-func (a *App) renderCurrentTask() string {
-	if a.timer.CurrentTask != nil {
-		return CurrentTaskStyle.Render("+task " + a.timer.CurrentTask.Description)
-	}
-	return CurrentTaskStyle.Render("Select a task to start")
-}
-
-// renderTimerControls renders the timer control buttons
-func (a *App) renderTimerControls() string {
-	if a.timer.State == model.TimerRunning {
-		return StopButtonStyle.Render("Stop [S]")
-	}
-	return StopButtonStyle.Render("Start [S]")
 }
 
 // renderTaskList renders the task list
@@ -433,4 +499,17 @@ func (a *App) settingsView() string {
 	builder.WriteString("Press Esc to go back")
 
 	return BoxStyle.Render(builder.String())
+}
+
+// Add this helper function for debug styling at the end of the file
+// debugStyle returns a style for debug messages
+func debugStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("205")). // Bright pink color
+		Bold(true)
+}
+
+// SetTimerOnlyMode sets the application to timer-only mode (debug mode)
+func (a *App) SetTimerOnlyMode(enabled bool) {
+	a.debugMode = enabled
 }

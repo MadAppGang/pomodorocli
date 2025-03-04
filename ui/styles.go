@@ -63,82 +63,80 @@ var (
 			BorderLeft(true).
 			BorderRight(true).
 			BorderBottom(true).
-			Background(ColorBoxBackground).
 			Padding(1, 2).
 			Width(termWidth - 8)
 
-	// Title style
+	// Title style - no background to prevent gray lines
 	TitleStyle = lipgloss.NewStyle().
 			Foreground(ColorText).
 			Bold(true).
 			Align(lipgloss.Center)
 
-	// App name style
+	// App name style - no background
 	AppNameStyle = lipgloss.NewStyle().
 			Foreground(ColorText).
 			MarginBottom(1)
 
-	// Timer display - using large text style
+	// Timer display - using large text style - no background
 	TimerStyle = lipgloss.NewStyle().
 			Foreground(ColorText).
 			Bold(true).
 			Align(lipgloss.Center).
 			Padding(0, 0, 1, 0)
 
-	// Progress bar
+	// Progress bar - no background
 	ProgressBarStyle = lipgloss.NewStyle().
-				Foreground(ColorProgressBar).
 				Bold(true).
 				Align(lipgloss.Center).
 				MarginBottom(1)
 
-	// Current task display
+	// Current task display - no background
 	CurrentTaskStyle = lipgloss.NewStyle().
 				Foreground(ColorText).
 				Align(lipgloss.Center).
 				MarginBottom(1)
 
-	// Stop button
+	// Stop button - no background
 	StopButtonStyle = lipgloss.NewStyle().
 			Foreground(ColorStopButton).
 			Bold(true).
 			Align(lipgloss.Center).
 			MarginBottom(1)
 
-	// Tasks header
+	// Tasks header - no background
 	TasksHeaderStyle = lipgloss.NewStyle().
 				Foreground(ColorTasksHeader).
 				MarginTop(1)
 
-	// Task style
+	// Task style - no background
 	TaskStyle = lipgloss.NewStyle().
 			Foreground(ColorText)
 
-	// Task progress style
+	// Task progress style - no background
 	TaskProgressStyle = lipgloss.NewStyle().
 				Foreground(ColorTaskTag)
 
-	// Task time style
+	// Task time style - no background
 	TaskTimeStyle = lipgloss.NewStyle().
 			Foreground(ColorText)
 
-	// Hide completed tasks
+	// Hide completed tasks - no background
 	HideCompletedStyle = lipgloss.NewStyle().
 				Foreground(ColorHideCompleted).
 				Bold(true)
 
-	// Add new task
+	// Add new task - no background
 	AddNewTaskStyle = lipgloss.NewStyle().
 			Foreground(ColorAddNewTask).
 			Bold(true)
 
-	// Menu item style
+	// Menu item style - no background
 	MenuItemStyle = lipgloss.NewStyle().
 			Foreground(ColorText).
 			PaddingLeft(1).
 			PaddingRight(1)
 
-	// Divider style - match box width
+	// Divider style - match box width - no background
 	DividerStyle = lipgloss.NewStyle().
 			Foreground(ColorText).
 			Width(termWidth - 16) // Account for borders and padding

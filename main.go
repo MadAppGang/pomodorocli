@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
@@ -9,9 +10,37 @@ import (
 )
 
 func main() {
-	p := tea.NewProgram(ui.NewApp(), tea.WithAltScreen())
-	if err := p.Start(); err != nil {
-		fmt.Printf("Error running application: %v\n", err)
+	// Define command-line flags
+	timerOnly := flag.Bool("timer", false, "Show only the timer component")
+	showHelp := flag.Bool("help", false, "Show help information")
+
+	// Parse command-line flags
+	flag.Parse()
+
+	// Show help text if requested
+	if *showHelp {
+		fmt.Println("Pomodoro CLI - A terminal-based Pomodoro timer")
+		fmt.Println("\nUsage:")
+		fmt.Println("  pomodorocli [options]")
+		fmt.Println("\nOptions:")
+		flag.PrintDefaults()
+		os.Exit(0)
+	}
+
+	// Create a new application
+	app := ui.NewApp()
+
+	// Set timer-only mode if requested via command-line flag
+	if *timerOnly {
+		app.SetTimerOnlyMode(true)
+	}
+
+	// Create a new bubble tea program
+	p := tea.NewProgram(app, tea.WithAltScreen())
+
+	// Run the program
+	if _, err := p.Run(); err != nil {
+		fmt.Printf("Error running program: %v\n", err)
 		os.Exit(1)
 	}
 }
