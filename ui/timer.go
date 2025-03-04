@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -70,7 +69,6 @@ func (t *TimerView) Render() string {
 		timer,
 		progressBar,
 		controls,
-		fmt.Sprintf("width: %d", t.width),
 	)
 
 	// The container should already have a consistent background from the joined elements
@@ -91,163 +89,13 @@ func (t *TimerView) renderTimer() string {
 
 	// If we have a font manager, use it to render the time string
 	if t.fontManager != nil {
-		// Get the currently active font name for display
-		currentFont := t.fontManager.CurrentFont
-
 		// Render the time with the current font
 		bigTimeStr := t.fontManager.RenderTimeString(timeStr)
-
-		// Add the font name at the bottom of the timer
-		fontInfo := fmt.Sprintf("Font: %s (Press F to change)", currentFont)
-		return TimerStyle.Background(nil).Render(bigTimeStr + "\n" + fontInfo)
+		return TimerStyle.Background(nil).Render(bigTimeStr)
 	}
 
-	// Fallback to hardcoded big digits if no font manager is available
-	bigTimeStr := renderBigDigits(timeStr)
-	return TimerStyle.Background(nil).Render(bigTimeStr)
-}
-
-// Define the big digits patterns for ASCII art rendering
-var bigDigits = map[rune][]string{
-	'0': {
-		"  ░░░░  ",
-		" ░    ░ ",
-		"░      ░",
-		"░      ░",
-		"░      ░",
-		"░      ░",
-		" ░    ░ ",
-		"  ░░░░  ",
-	},
-	'1': {
-		"   ░░   ",
-		"  ░░░   ",
-		" ░ ░░   ",
-		"   ░░   ",
-		"   ░░   ",
-		"   ░░   ",
-		"   ░░   ",
-		" ░░░░░░ ",
-	},
-	'2': {
-		" ░░░░░░ ",
-		"░      ░",
-		"       ░",
-		"      ░ ",
-		"    ░░  ",
-		"  ░░    ",
-		" ░      ",
-		"░░░░░░░░",
-	},
-	'3': {
-		" ░░░░░░ ",
-		"░      ░",
-		"       ░",
-		"   ░░░░ ",
-		"   ░░░░ ",
-		"       ░",
-		"░      ░",
-		" ░░░░░░ ",
-	},
-	'4': {
-		"     ░░ ",
-		"    ░░░ ",
-		"   ░ ░░ ",
-		"  ░  ░░ ",
-		" ░   ░░ ",
-		"░░░░░░░░",
-		"     ░░ ",
-		"     ░░ ",
-	},
-	'5': {
-		"░░░░░░░░",
-		"░       ",
-		"░       ",
-		"░░░░░░░ ",
-		"       ░",
-		"       ░",
-		"░      ░",
-		" ░░░░░░ ",
-	},
-	'6': {
-		"  ░░░░░ ",
-		" ░      ",
-		"░       ",
-		"░░░░░░░ ",
-		"░      ░",
-		"░      ░",
-		"░      ░",
-		" ░░░░░░ ",
-	},
-	'7': {
-		"░░░░░░░░",
-		"      ░ ",
-		"     ░  ",
-		"    ░   ",
-		"   ░    ",
-		"  ░     ",
-		" ░      ",
-		"░       ",
-	},
-	'8': {
-		" ░░░░░░ ",
-		"░      ░",
-		"░      ░",
-		" ░░░░░░ ",
-		" ░░░░░░ ",
-		"░      ░",
-		"░      ░",
-		" ░░░░░░ ",
-	},
-	'9': {
-		" ░░░░░░ ",
-		"░      ░",
-		"░      ░",
-		"░      ░",
-		" ░░░░░░░",
-		"       ░",
-		"      ░ ",
-		" ░░░░░  ",
-	},
-	':': {
-		"        ",
-		"   ░░   ",
-		"   ░░   ",
-		"        ",
-		"        ",
-		"   ░░   ",
-		"   ░░   ",
-		"        ",
-	},
-}
-
-// renderBigDigits converts a time string (e.g. "25:00") into large ASCII art
-func renderBigDigits(timeStr string) string {
-	// Number of lines in each digit pattern
-	lines := 8
-
-	// Initialize result lines
-	result := make([]string, lines)
-
-	// Process each character in the time string
-	for _, char := range timeStr {
-		// Get the digit pattern (default to empty if not found)
-		pattern, ok := bigDigits[char]
-		if !ok {
-			pattern = make([]string, lines)
-			for i := range pattern {
-				pattern[i] = "        "
-			}
-		}
-
-		// Add this digit's pattern to each line of the result
-		for i := 0; i < lines; i++ {
-			result[i] += pattern[i]
-		}
-	}
-
-	// Join all lines with newlines
-	return strings.Join(result, "\n")
+	// Fallback to regular string
+	return TimerStyle.Background(nil).Render(timeStr)
 }
 
 // renderProgressBar renders the timer progress bar
@@ -261,10 +109,7 @@ func (t *TimerView) renderProgressBar() string {
 // buildProgressBar creates the progress bar string without styling as a method on TimerView using its width
 func (t *TimerView) buildProgressBar(percentage float64) string {
 	// Calculate a width that scales with TimerView width
-	progressBarWidth := t.width - 40
-	if progressBarWidth < 20 {
-		progressBarWidth = 20 // Minimum size
-	}
+	progressBarWidth := clamp(t.width-40, 20, GetTerminalWidth()-20)
 
 	filledWidth := int(percentage * float64(progressBarWidth) / 100.0)
 	if filledWidth < 0 {
