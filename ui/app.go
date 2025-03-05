@@ -426,7 +426,7 @@ func (a *App) debugView() string {
 		containerStyle := lipgloss.NewStyle().
 			Background(ColorBoxBackground).
 			Padding(1, 2).
-			Width(a.width / 2) // Make it half the width for better readability
+			Width(a.width - 20) // Make it half the width for better readability
 
 		// Apply styling and center
 		styledTaskList := containerStyle.Render(tasksContent)

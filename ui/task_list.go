@@ -99,8 +99,19 @@ func (t *TaskListView) renderTaskList() string {
 		isSelected := i == (t.selectedIndex % len(t.taskManager.FilteredTasks()))
 		isCurrentTask := t.currentTask != nil && task.ID == t.currentTask.ID
 
-		// Task number
-		taskNumber := fmt.Sprintf("%d", i+1)
+		// Task number and selection indicator
+		var taskNumber string
+		if isSelected {
+			// Add emoji indicator for selected task with purple color
+			indicator := lipgloss.NewStyle().
+				Foreground(ColorTaskTag). // Use purple from the task tag
+				Bold(true).
+				Render("👉 ")
+			taskNumber = fmt.Sprintf("%s%d", indicator, i+1)
+		} else {
+			// Add padding for non-selected tasks to maintain alignment
+			taskNumber = fmt.Sprintf("   %d", i+1)
+		}
 
 		// Task progress
 		taskProgress := task.PomodoroProgress()
@@ -146,7 +157,7 @@ func (t *TaskListView) renderTaskList() string {
 
 		// Current task styling
 		if isCurrentTask {
-			taskDescStyle = CurrentTaskStyle.UnsetBackground() // Remove background
+			taskDescStyle = CurrentTaskStyle.Background(ColorBackground) // Set explicit background
 			taskDescStyle = taskDescStyle.Bold(true)
 		}
 
@@ -174,13 +185,16 @@ func (t *TaskListView) renderTaskList() string {
 		var fullTaskLine string
 
 		// Create layout with fixed spacing that matches the reference
-		numberWidth := lipgloss.Width(renderedNumber)
 		progressWidth := lipgloss.Width(renderedProgress)
 		timeWidth := lipgloss.Width(renderedTime)
 
 		// Position the elements with fixed spacing as in the screenshot
 		fullTaskLine = renderedNumber
-		fullTaskLine += strings.Repeat(" ", 4-numberWidth) // Fixed spacing after number
+		// Adjusted spacing to account for the selection indicator
+		spacingAfterNumber := 1
+		if spacingAfterNumber > 0 {
+			fullTaskLine += strings.Repeat(" ", spacingAfterNumber)
+		}
 		fullTaskLine += renderedProgress
 		fullTaskLine += strings.Repeat(" ", 8-progressWidth) // Fixed spacing after progress
 		fullTaskLine += renderedTime
