@@ -88,10 +88,14 @@ func (t *TimerView) Render() string {
 
 // renderCurrentTask renders the current active task (if any)
 func (t *TimerView) renderCurrentTask() string {
-	if t.timer.CurrentTask != nil && t.timer.State == model.TimerRunning {
-		return CurrentTaskStyle.
-			PaddingBottom(1).
-			Render(TaskProgressStyle.Render("+task ") + t.timer.CurrentTask.Description)
+	if t.timer.CurrentTaskID != "" && t.timer.State == model.TimerRunning {
+		// Get the current task from the task manager
+		task, found := t.timer.TaskManager.GetTask(t.timer.CurrentTaskID)
+		if found {
+			return CurrentTaskStyle.
+				PaddingBottom(1).
+				Render(TaskProgressStyle.Render("+task ") + task.Description)
+		}
 	}
 	return CurrentTaskStyle.
 		PaddingBottom(1).

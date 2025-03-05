@@ -52,10 +52,17 @@ func (t *TaskListView) GetSelectedTaskPtr() *model.Task {
 		return nil
 	}
 
-	// Get a copy of the task
-	task := tasks[t.selectedIndex%len(tasks)]
-	// Return a pointer to it
-	return &task
+	// Get the selected task
+	selectedTask := tasks[t.selectedIndex%len(tasks)]
+
+	// Find and return a pointer to the actual task in the task manager
+	for i := range t.taskManager.Tasks {
+		if t.taskManager.Tasks[i].ID == selectedTask.ID {
+			return &t.taskManager.Tasks[i]
+		}
+	}
+
+	return nil
 }
 
 // MoveSelectionDown moves the selection down in the task list

@@ -50,14 +50,16 @@ type Timer struct {
 	CompletedPomodoros int
 	// Maximum number of pomodoros before a long break
 	PomodorosPerCycle int
-	// The current active task (nil if none)
-	CurrentTask *Task
+	// The current active task ID (empty if none)
+	CurrentTaskID string
+	// Reference to the task manager
+	TaskManager *TaskManager
 	// Settings for timer durations
 	Settings *Settings
 }
 
 // NewTimer creates a new timer with default settings
-func NewTimer() *Timer {
+func NewTimer(taskManager *TaskManager) *Timer {
 	// Create with default settings
 	settings := DefaultSettings()
 
@@ -68,7 +70,8 @@ func NewTimer() *Timer {
 		Duration:           settings.GetPomodoroDuration(),
 		CompletedPomodoros: 0,
 		PomodorosPerCycle:  DefaultPomodorosPerCycle,
-		CurrentTask:        nil,
+		CurrentTaskID:      "",
+		TaskManager:        taskManager,
 		Settings:           &settings,
 	}
 }
@@ -115,6 +118,24 @@ func (t *Timer) Start() {
 
 // Stop stops the timer
 func (t *Timer) Stop() {
+	// Only handle task updates if we were in focus mode and timer was running
+	if t.State == TimerRunning && t.Mode == FocusMode {
+		// Calculate how much of the pomodoro was completed
+		elapsed := time.Since(t.StartTime)
+		percentComplete := (float64(elapsed) / float64(t.Duration)) * 100
+
+		// If at least 50% of the pomodoro was completed, count it as done
+		if percentComplete >= 50 {
+			t.CompletedPomodoros++
+
+			// Update current task if one is set
+			if t.CurrentTaskID != "" && t.TaskManager != nil {
+				t.TaskManager.AddCompletedPomodoro(t.CurrentTaskID)
+				t.TaskManager.AddTimeSpent(t.CurrentTaskID, elapsed) // Add actual time spent
+			}
+		}
+	}
+
 	t.State = TimerStopped
 	// Reset to initial duration based on current mode
 	t.updateDurationFromSettings()
@@ -148,8 +169,8 @@ func (t *Timer) Resume() {
 }
 
 // SetCurrentTask sets the current task
-func (t *Timer) SetCurrentTask(task Task) {
-	t.CurrentTask = &task
+func (t *Timer) SetCurrentTask(taskID string) {
+	t.CurrentTaskID = taskID
 }
 
 // Update updates the timer's state and returns true if the timer completed
@@ -172,9 +193,9 @@ func (t *Timer) Update() bool {
 			t.CompletedPomodoros++
 
 			// Update current task if one is set
-			if t.CurrentTask != nil {
-				t.CurrentTask.AddCompletedPomodoro()
-				t.CurrentTask.AddTimeSpent(t.Duration)
+			if t.CurrentTaskID != "" && t.TaskManager != nil {
+				t.TaskManager.AddCompletedPomodoro(t.CurrentTaskID)
+				t.TaskManager.AddTimeSpent(t.CurrentTaskID, t.Duration)
 			}
 		}
 

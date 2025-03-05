@@ -110,8 +110,8 @@ func NewApp() *App {
 
 	// Initialize model objects
 	settingsManager := model.NewSettingsManager()
-	timer := model.NewTimer()
 	taskManager := model.NewTaskManager()
+	timer := model.NewTimer(taskManager)
 
 	// Set the timer to use the settings
 	timer.SetSettings(&settingsManager.Settings)
@@ -134,11 +134,6 @@ func NewApp() *App {
 			// If loading fails, we'll use default settings
 			fmt.Println("Error loading settings:", err)
 		} else {
-			// Debug: Print loaded settings
-			fmt.Printf("Loaded settings - Pomodoro: %d, Short break: %d, Long break: %d\n",
-				settingsManager.Settings.PomodoroDuration,
-				settingsManager.Settings.ShortBreakDuration,
-				settingsManager.Settings.LongBreakDuration)
 
 			// Make sure the timer is updated with the loaded settings
 			timer.SetSettings(&settingsManager.Settings)
@@ -251,10 +246,26 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case TickMsg:
 		// Update the timer
-		a.timer.Update()
+		timerCompleted := a.timer.Update()
 
 		// Sync the current task to the task list view
-		a.taskListView.SetCurrentTask(a.timer.CurrentTask)
+		if a.timer.CurrentTaskID != "" {
+			task, found := a.taskManager.GetTask(a.timer.CurrentTaskID)
+			if found {
+				a.taskListView.SetCurrentTask(&task)
+			} else {
+				a.taskListView.SetCurrentTask(nil)
+			}
+		} else {
+			a.taskListView.SetCurrentTask(nil)
+		}
+
+		// If timer completed, save tasks to persist completed pomodoros
+		if timerCompleted && a.storageManager != nil {
+			if err := a.storageManager.SaveTasks(); err != nil {
+				fmt.Println("Error saving tasks after timer completion:", err)
+			}
+		}
 
 		// Continue ticking
 		return a, tea.Tick(time.Second, func(t time.Time) tea.Msg {
@@ -291,7 +302,7 @@ func (a *App) updateMainView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return a, tea.Quit
 
 	case "S", "s":
-		// Toggle between start and pause without resetting
+		// Both S and s toggle between start and pause
 		if a.timer.State == model.TimerRunning {
 			a.timer.Pause()
 		} else {
@@ -324,7 +335,7 @@ func (a *App) updateMainView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		// Select current task
 		if selectedTaskPtr := a.taskListView.GetSelectedTaskPtr(); selectedTaskPtr != nil {
-			a.timer.SetCurrentTask(*selectedTaskPtr)
+			a.timer.SetCurrentTask(selectedTaskPtr.ID)
 			// Update task list view with current task
 			a.taskListView.SetCurrentTask(selectedTaskPtr)
 			a.timer.Start()
@@ -413,7 +424,8 @@ func (a *App) updateAddTaskView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				}
 			}
 
-			a.taskManager.AddTask(description, pomodoros)
+			task := a.taskManager.AddTask(description, pomodoros)
+			a.timer.SetCurrentTask(task.ID)
 
 			// Save tasks after adding a new one
 			if a.storageManager != nil {
@@ -599,7 +611,7 @@ func (a *App) mainView() string {
 	helpTextContent := ""
 	if a.showHelpText {
 		helpTextContent = helpStyle.Render(
-			"\n[S] Start/Pause  [s] Stop  [r] Reset  [n] New Task  [o] Settings  [h] Toggle Completed  [Space] Toggle Selected  [Enter] Run Task  [Ctrl+C/q] Quit  [?] Hide Help")
+			"\n[S/s] Start/Pause  [r] Reset  [n] New Task  [o] Settings  [h] Toggle Completed  [Space] Toggle Selected  [Enter] Run Task  [Ctrl+C/q] Quit  [?] Hide Help")
 	}
 
 	return mainContainerStyle.Render(styledContent + helpTextContent + debugModeText)
@@ -791,7 +803,7 @@ func (a *App) RenderTimerView() string {
 	// Initialize with sample tasks if needed
 	if len(a.taskManager.Tasks) == 0 {
 		task := a.taskManager.AddTask("Work on design concept", 4)
-		a.timer.SetCurrentTask(task)
+		a.timer.SetCurrentTask(task.ID)
 	}
 
 	// Force timer debug mode
