@@ -455,6 +455,7 @@ func (a *App) updateAddTaskView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (a *App) updateSettingsView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
+	// First, handle special keys that should always work regardless of focus
 	switch msg.String() {
 	case "ctrl+c", "q":
 		return a, tea.Quit
@@ -466,6 +467,22 @@ func (a *App) updateSettingsView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		a.view = MainView
 		return a, nil
 
+	case "a", "A":
+		// Always handle 'a' key for toggling auto-start breaks
+		// Toggle auto-start breaks
+		a.settingsManager.Settings.AutoStartBreaks = !a.settingsManager.Settings.AutoStartBreaks
+		// Save settings after toggling
+		a.saveSettings()
+		return a, nil
+
+	case "?":
+		// Toggle help text visibility
+		a.showHelpText = !a.showHelpText
+		return a, nil
+	}
+
+	// Then handle navigation keys
+	switch msg.String() {
 	case "tab", "shift+tab":
 		// Switch between inputs
 		if a.pomodoroDurationInput.Focused() {
@@ -478,6 +495,7 @@ func (a *App) updateSettingsView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			a.longBreakDurationInput.Blur()
 			a.pomodoroDurationInput.Focus()
 		}
+		return a, nil
 
 	case "enter":
 		// Save settings using the saveSettings method
@@ -488,20 +506,41 @@ func (a *App) updateSettingsView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		a.pomodoroDurationInput.Blur()
 		a.shortBreakDurationInput.Blur()
 		a.longBreakDurationInput.Blur()
-
-	case "a", "A":
-		// Toggle auto-start breaks
-		a.settingsManager.Settings.AutoStartBreaks = !a.settingsManager.Settings.AutoStartBreaks
-		// Save settings after toggling
-		a.saveSettings()
-
-	case "?":
-		// Toggle help text visibility
-		a.showHelpText = !a.showHelpText
 		return a, nil
 	}
 
-	// Handle text input updates
+	// Then handle navigation keys
+	switch msg.String() {
+	case "tab", "down", "j", "J":
+		// Move to next input field
+		if a.pomodoroDurationInput.Focused() {
+			a.pomodoroDurationInput.Blur()
+			a.shortBreakDurationInput.Focus()
+		} else if a.shortBreakDurationInput.Focused() {
+			a.shortBreakDurationInput.Blur()
+			a.longBreakDurationInput.Focus()
+		} else {
+			a.longBreakDurationInput.Blur()
+			a.pomodoroDurationInput.Focus()
+		}
+		return a, nil
+
+	case "up", "k", "K", "shift+tab":
+		// Move to previous input field
+		if a.pomodoroDurationInput.Focused() {
+			a.pomodoroDurationInput.Blur()
+			a.longBreakDurationInput.Focus()
+		} else if a.shortBreakDurationInput.Focused() {
+			a.shortBreakDurationInput.Blur()
+			a.pomodoroDurationInput.Focus()
+		} else {
+			a.longBreakDurationInput.Blur()
+			a.shortBreakDurationInput.Focus()
+		}
+		return a, nil
+	}
+
+	// Finally handle text input updates
 	if a.pomodoroDurationInput.Focused() {
 		a.pomodoroDurationInput, cmd = a.pomodoroDurationInput.Update(msg)
 		return a, cmd
@@ -764,7 +803,7 @@ func (a *App) settingsView() string {
 
 	// Instructions with help toggle
 	if a.showHelpText {
-		builder.WriteString("Press Enter to save, Esc to cancel, Tab to switch fields, ? to hide help")
+		builder.WriteString("Press Enter to save, Esc to cancel, Tab/↑/↓ to navigate, ? to hide help")
 	} else {
 		builder.WriteString("Press ? to show help")
 	}
