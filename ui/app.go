@@ -518,11 +518,17 @@ func (a *App) mainView() string {
 		Padding(1, 2).
 		Width(a.width - 4)
 
-	// Create inner box with rounded borders - using ColorBackground instead of ColorBoxBackground
+	// Create inner box with rounded borders - adjust height based on help text visibility
+	innerBoxHeight := a.height - 6
+	if !a.showHelpText {
+		// Expand the inner box when help text is hidden to use that space
+		innerBoxHeight += 3 // Add space that would have been used by help text
+	}
+
 	innerBoxStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		Width(a.width - 10).
-		Height(a.height - 10) // Reduce height to make room for help text
+		Height(innerBoxHeight)
 
 	// Render the timer component
 	timerSection := lipgloss.NewStyle().
