@@ -344,54 +344,52 @@ func (a *App) mainView() string {
 	}
 
 	// Regular rendering for normal mode
-	// Create container style for consistent background
-	containerStyle := lipgloss.NewStyle().
-		Background(ColorBoxBackground).
-		Width(a.width - 12)
-
-	// Render timer view using the extracted component and apply container background
-	timerContent := a.timerView.Render()
-	builder.WriteString("\n\n")
-	timerSection := containerStyle.Align(lipgloss.Center).Render(timerContent)
-
-	// Create divider without its own background
-	divider := strings.Repeat("─", a.width-20)
-	styledDivider := DividerStyle.Render(divider)
-
-	// Render task list and apply container background
-	tasksContent := a.taskListView.Render()
-	tasksSection := containerStyle.Render(tasksContent)
-
-	// Join everything vertically with consistent backgrounds
-	content := lipgloss.JoinVertical(lipgloss.Left,
-		timerSection,
-		containerStyle.Align(lipgloss.Center).Render(styledDivider),
-		tasksSection,
-	)
-
-	// Wrap in box style
-	renderedBox := BoxStyle.
+	// Create main container with the background color
+	mainContainerStyle := lipgloss.NewStyle().
+		Background(ColorBackground).
 		Padding(1, 2).
-		Width(a.width - 8).
-		Render(content)
+		Width(a.width - 4)
 
-	builder.WriteString(renderedBox)
+	// Create inner box with rounded borders
+	innerBoxStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(ColorBorder).
+		Background(ColorBoxBackground).
+		Padding(0, 2). // Remove vertical padding
+		Width(a.width - 8)
 
-	// Bottom menu
-	menuItems := []string{"settings", "statistics", "log in with google"}
-	menuBar := lipgloss.JoinHorizontal(lipgloss.Center,
-		MenuItemStyle.Render(menuItems[0]),
-		MenuItemStyle.Render(menuItems[1]),
-		MenuItemStyle.Render(menuItems[2]),
+	// Render the timer component
+	timerSection := a.timerView.Render()
+	
+	// Create divider with proper styling
+	divider := lipgloss.NewStyle().
+		Foreground(ColorGrayText).
+		Render(strings.Repeat("─", a.width-16))
+
+	// Render the task list component but reduce its padding
+	a.taskListView.SetWidth(a.width - 12) // Adjust width to account for inner box padding
+	taskListSection := a.taskListView.Render()
+
+	// Assemble the inner content
+	innerContent := lipgloss.JoinVertical(
+		lipgloss.Center,
+		timerSection,
+		divider,
+		taskListSection,
 	)
 
-	builder.WriteString("\n")
-	builder.WriteString(lipgloss.NewStyle().Align(lipgloss.Center).Width(a.width - 4).Render(menuBar))
+	// Apply the inner box styling
+	styledContent := innerBoxStyle.Render(innerContent)
 
-	builder.WriteString("\n")
-	builder.WriteString(debugStyle().Render("Press [D] to enter debug mode"))
+	// Apply the main container styling
+	debugModeText := ""
+	if a.debugMode != NoDebug {
+		debugModeText = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("205")).
+			Render(fmt.Sprintf("\nPress [D] to cycle debug modes"))
+	}
 
-	return AppStyle.Render(builder.String())
+	return mainContainerStyle.Render(styledContent + debugModeText)
 }
 
 func (a *App) debugView() string {
@@ -513,4 +511,51 @@ func (a *App) SetTaskListOnlyMode(enabled bool) {
 	} else {
 		a.debugMode = NoDebug
 	}
+}
+
+// RenderMainView renders the main view and returns it as a string
+// Used in print mode to output the view and exit
+func (a *App) RenderMainView() string {
+	// Initialize with sample tasks if needed
+	if len(a.taskManager.Tasks) == 0 {
+		a.taskManager.AddTask("Work on design concept", 4)
+		a.taskManager.AddTask("Test the prototype with users", 3)
+		a.taskManager.AddTask("Create a design concept for the Evergen App / Link", 3)
+	}
+	
+	// Use the existing mainView method to render
+	return a.mainView()
+}
+
+// RenderTimerView renders only the timer view and returns it as a string
+// Used in print mode to output the view and exit
+func (a *App) RenderTimerView() string {
+	// Initialize with sample tasks if needed
+	if len(a.taskManager.Tasks) == 0 {
+		task := a.taskManager.AddTask("Work on design concept", 4)
+		a.timer.SetCurrentTask(task)
+	}
+	
+	// Force timer debug mode
+	a.debugMode = TimerDebug
+	
+	// Use the existing debugView method to render
+	return a.debugView()
+}
+
+// RenderTaskListView renders only the task list view and returns it as a string
+// Used in print mode to output the view and exit
+func (a *App) RenderTaskListView() string {
+	// Initialize with sample tasks if needed
+	if len(a.taskManager.Tasks) == 0 {
+		a.taskManager.AddTask("Work on design concept", 4)
+		a.taskManager.AddTask("Test the prototype with users", 3)
+		a.taskManager.AddTask("Create a design concept for the Evergen App / Link", 3)
+	}
+	
+	// Force task list debug mode
+	a.debugMode = TaskListDebug
+	
+	// Use the existing debugView method to render
+	return a.debugView()
 }

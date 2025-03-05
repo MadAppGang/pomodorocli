@@ -85,7 +85,7 @@ func (t *TaskListView) Render() string {
 	// Apply a consistent background color to the entire component
 	return lipgloss.NewStyle().
 		Background(ColorBackground).
-		Padding(1, 2). // Add some padding around the entire component
+		Padding(0, 2). // Horizontal padding only, no vertical padding
 		Width(t.width).
 		Render(combined)
 }
@@ -102,11 +102,11 @@ func (t *TaskListView) renderTaskList() string {
 		// Task number and selection indicator
 		var taskNumber string
 		if isSelected {
-			// Add emoji indicator for selected task with purple color
+			// Add sparkle emoji indicator for selected task with purple color
 			indicator := lipgloss.NewStyle().
 				Foreground(ColorTaskTag). // Use purple from the task tag
 				Bold(true).
-				Render("👉 ")
+				Render("✨ ")
 			taskNumber = fmt.Sprintf("%s%d", indicator, i+1)
 		} else {
 			// Add padding for non-selected tasks to maintain alignment
@@ -210,7 +210,7 @@ func (t *TaskListView) renderTaskList() string {
 
 	// Add the "Add new task" control at the bottom with consistent styling
 	// Use padding instead of empty lines for spacing
-	addNewTaskStyle := AddNewTaskStyle.Copy().PaddingTop(1)
+	addNewTaskStyle := AddNewTaskStyle.PaddingTop(1)
 	tasks = append(tasks, addNewTaskStyle.Render("Add new task [N]"))
 
 	return lipgloss.JoinVertical(lipgloss.Left, tasks...)
@@ -218,7 +218,7 @@ func (t *TaskListView) renderTaskList() string {
 
 // renderTaskControls returns the rendered task controls
 func (t *TaskListView) renderTaskControls() string {
-	// Use a header with margin-bottom for spacing
+	// Use a header without margin
 	tasksHeader := TasksHeaderStyle.Render("Tasks")
 
 	// Match the Figma design styling for controls
@@ -229,8 +229,11 @@ func (t *TaskListView) renderTaskControls() string {
 		hideCompletedText = "Show completed tasks"
 	}
 
-	// Add margin-bottom to the hide completed control
-	hideCompleted := HideCompletedStyle.Render(hideCompletedText)
+	// Render hide completed control without margin
+	hideCompleted := HideCompletedStyle.
+		MarginTop(0).
+		MarginBottom(0).
+		Render(hideCompletedText)
 
 	// Only show Hide completed tasks at the top
 	return lipgloss.JoinHorizontal(lipgloss.Left, tasksHeader, "       ", hideCompleted)

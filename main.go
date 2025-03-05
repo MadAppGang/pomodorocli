@@ -13,6 +13,7 @@ func main() {
 	// Define command-line flags
 	timerOnly := flag.Bool("timer", false, "Show only the timer component")
 	tasksOnly := flag.Bool("tasks", false, "Show only the task list component")
+	printMode := flag.Bool("print", false, "Print the view and exit (debug mode)")
 	showHelp := flag.Bool("help", false, "Show help information")
 
 	// Parse command-line flags
@@ -39,7 +40,22 @@ func main() {
 		app.SetTaskListOnlyMode(true)
 	}
 
-	// Create a new bubble tea program
+	// Handle print mode - render the view and exit without running the interactive program
+	if *printMode {
+		// Render and print the appropriate view
+		var output string
+		if *timerOnly {
+			output = app.RenderTimerView()
+		} else if *tasksOnly {
+			output = app.RenderTaskListView()
+		} else {
+			output = app.RenderMainView()
+		}
+		fmt.Print(output)
+		os.Exit(0)
+	}
+
+	// Create a new bubble tea program for interactive mode
 	p := tea.NewProgram(app, tea.WithAltScreen())
 
 	// Run the program

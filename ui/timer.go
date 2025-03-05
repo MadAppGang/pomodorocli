@@ -68,15 +68,20 @@ func (t *TimerView) Render() string {
 	progressBar := t.renderProgressBar()
 	controls := t.renderControls()
 
-	// Join the timer section elements vertically
+	// Join the timer section elements vertically with minimal spacing
 	var components []string
 	if fontInfo != "" {
 		components = append(components, fontInfo)
 	}
+	
+	// Compact rendering of components
 	components = append(components, currentTask, timer, progressBar, controls)
 
-	// Join all components without applying background
-	timerContent := lipgloss.JoinVertical(lipgloss.Center, components...)
+	// Join all components with center alignment and no extra padding
+	timerContent := lipgloss.NewStyle().
+		Padding(0, 0).
+		Align(lipgloss.Center).
+		Render(lipgloss.JoinVertical(lipgloss.Center, components...))
 
 	return timerContent
 }
