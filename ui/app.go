@@ -48,17 +48,23 @@ const (
 // App is the main application model
 type App struct {
 	// Application state
-	timer          *model.Timer
-	taskManager    *model.TaskManager
-	storageManager *storage.StorageManager
-	view           ViewState
-	width          int
-	height         int
+	timer           *model.Timer
+	taskManager     *model.TaskManager
+	settingsManager *model.SettingsManager
+	storageManager  *storage.StorageManager
+	view            ViewState
+	width           int
+	height          int
 
 	// Input fields for adding tasks
 	taskInput      textinput.Model
 	pomodorosInput textinput.Model
 	inputting      bool
+
+	// Input fields for settings
+	pomodoroDurationInput   textinput.Model
+	shortBreakDurationInput textinput.Model
+	longBreakDurationInput  textinput.Model
 
 	// Components
 	timerView    *TimerView
@@ -69,10 +75,14 @@ type App struct {
 
 	// Font manager for rendering big digits
 	fontManager *FontManager
+
+	// UI control flags
+	showHelpText bool
 }
 
 // NewApp creates a new application model
 func NewApp() *App {
+	// Initialize task inputs
 	taskInput := textinput.New()
 	taskInput.Placeholder = "Task description"
 	taskInput.Width = 60
@@ -82,21 +92,47 @@ func NewApp() *App {
 	pomodorosInput.Placeholder = "Number of pomodoros (default: 4)"
 	pomodorosInput.Width = 10
 
+	// Initialize settings inputs
+	pomodoroDurationInput := textinput.New()
+	pomodoroDurationInput.Placeholder = "Pomodoro duration (minutes)"
+	pomodoroDurationInput.Width = 10
+
+	shortBreakDurationInput := textinput.New()
+	shortBreakDurationInput.Placeholder = "Short break duration (minutes)"
+	shortBreakDurationInput.Width = 10
+
+	longBreakDurationInput := textinput.New()
+	longBreakDurationInput.Placeholder = "Long break duration (minutes)"
+	longBreakDurationInput.Width = 10
+
 	width := GetTerminalWidth()
 	height := GetTerminalHeight()
 
+	// Initialize model objects
+	settingsManager := model.NewSettingsManager()
 	timer := model.NewTimer()
 	taskManager := model.NewTaskManager()
+
+	// Set the timer to use the settings
+	timer.SetSettings(&settingsManager.Settings)
 
 	// Initialize storage
 	jsonStorage, err := storage.NewJSONTaskStorage("./data/tasks.json")
 	var storageManager *storage.StorageManager
 	if err == nil {
-		storageManager = storage.NewStorageManager(jsonStorage, taskManager)
+		// Now jsonStorage implements both TaskStorage and SettingsStorage
+		storageManager = storage.NewStorageManager(jsonStorage, jsonStorage, taskManager, &settingsManager.Settings)
+
 		// Load tasks from storage
 		if err := storageManager.LoadTasks(); err != nil {
 			// If loading fails, we'll start with an empty task list
 			fmt.Println("Error loading tasks:", err)
+		}
+
+		// Load settings from storage
+		if err := storageManager.LoadSettings(); err != nil {
+			// If loading fails, we'll use default settings
+			fmt.Println("Error loading settings:", err)
 		}
 	}
 
@@ -109,17 +145,22 @@ func NewApp() *App {
 	}
 
 	app := &App{
-		timer:          timer,
-		taskManager:    taskManager,
-		storageManager: storageManager,
-		view:           MainView,
-		width:          width,
-		height:         height,
-		taskInput:      taskInput,
-		pomodorosInput: pomodorosInput,
-		inputting:      false,
-		debugMode:      NoDebug,
-		fontManager:    fontManager,
+		timer:                   timer,
+		taskManager:             taskManager,
+		settingsManager:         settingsManager,
+		storageManager:          storageManager,
+		view:                    MainView,
+		width:                   width,
+		height:                  height,
+		taskInput:               taskInput,
+		pomodorosInput:          pomodorosInput,
+		pomodoroDurationInput:   pomodoroDurationInput,
+		shortBreakDurationInput: shortBreakDurationInput,
+		longBreakDurationInput:  longBreakDurationInput,
+		inputting:               false,
+		debugMode:               NoDebug,
+		fontManager:             fontManager,
+		showHelpText:            false, // Show help text by default
 	}
 
 	// Initialize components
@@ -130,6 +171,17 @@ func NewApp() *App {
 	if fontManager != nil {
 		app.timerView.SetFontManager(fontManager)
 	}
+
+	// Register settings change handler to update timer
+	settingsManager.RegisterChangeHandler(func() {
+		// Update timer with new settings
+		timer.SetSettings(&settingsManager.Settings)
+
+		// Save settings on change
+		if storageManager != nil {
+			_ = storageManager.SaveSettings()
+		}
+	})
 
 	return app
 }
@@ -217,43 +269,34 @@ func (a *App) updateMainView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+c", "q":
 		return a, tea.Quit
 
-	case "s":
-		// Stop the timer
-		if a.timer.State == model.TimerRunning {
-			a.timer.Stop()
-		} else if a.timer.State == model.TimerStopped {
-			// If we have selected task, set it as current and start
-			if selectedTaskPtr := a.taskListView.GetSelectedTaskPtr(); selectedTaskPtr != nil {
-				a.timer.SetCurrentTask(*selectedTaskPtr)
-				// Update task list view with current task
-				a.taskListView.SetCurrentTask(selectedTaskPtr)
-				a.timer.Start()
-			}
-		}
-
-	case "p":
-		// Pause/resume timer
+	case "S", "s":
+		// Toggle between start and pause without resetting
 		if a.timer.State == model.TimerRunning {
 			a.timer.Pause()
-		} else if a.timer.State == model.TimerPaused {
-			a.timer.Resume()
+		} else {
+			// Will resume if paused, or start if stopped
+			a.timer.Start()
 		}
 
-	case "n":
+	case "R", "r":
+		// Reset timer to full duration
+		a.timer.Reset()
+
+	case "N", "n":
 		// Add new task
 		a.view = AddTaskView
 		a.taskInput.Focus()
 		a.inputting = true
 
-	case "h":
+	case "H", "h":
 		// Toggle hiding completed tasks
 		a.taskListView.ToggleShowCompleted()
 
-	case "j", "down":
+	case "J", "j", "down":
 		// Move down in task list
 		a.taskListView.MoveSelectionDown()
 
-	case "k", "up":
+	case "K", "k", "up":
 		// Move up in task list
 		a.taskListView.MoveSelectionUp()
 
@@ -270,7 +313,7 @@ func (a *App) updateMainView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Toggle task complete
 		a.taskListView.ToggleSelectedTaskComplete()
 
-	case "d":
+	case "D", "d":
 		// Delete the selected task
 		if selectedTaskPtr := a.taskListView.GetSelectedTaskPtr(); selectedTaskPtr != nil {
 			a.taskListView.DeleteSelectedTask()
@@ -282,15 +325,23 @@ func (a *App) updateMainView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-	case "f2":
+	case "O", "o":
+		// Open settings
+		a.view = SettingsView
+
+	case "M", "m":
 		// Cycle through debug modes: NoDebug -> TimerDebug -> TaskListDebug -> NoDebug
 		a.debugMode = (a.debugMode + 1) % 3
 
-	case "f":
+	case "F", "f":
 		// Toggle through fonts if font manager is available
 		if a.fontManager != nil {
 			a.fontManager.NextFont()
 		}
+
+	case "?":
+		// Toggle help text visibility
+		a.showHelpText = !a.showHelpText
 	}
 
 	return a, nil
@@ -301,12 +352,21 @@ func (a *App) updateAddTaskView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg.String() {
-	case "ctrl+c", "esc":
-		// Cancel adding task
+	case "ctrl+c", "q":
+		return a, tea.Quit
+
+	case "esc":
+		// Cancel and return to main view
 		a.view = MainView
-		a.inputting = false
-		a.taskInput.Reset()
-		a.pomodorosInput.Reset()
+		a.taskInput.Blur()
+		a.pomodorosInput.Blur()
+		a.taskInput.SetValue("")
+		a.pomodorosInput.SetValue("")
+		return a, nil
+
+	case "?": // Toggle help text visibility
+		a.showHelpText = !a.showHelpText
+		return a, nil
 
 	case "tab":
 		// Switch between inputs
@@ -362,12 +422,67 @@ func (a *App) updateAddTaskView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // updateSettingsView handles input for the settings view
 func (a *App) updateSettingsView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
 	switch msg.String() {
-	case "ctrl+c", "esc", "q":
+	case "ctrl+c", "q":
+		return a, tea.Quit
+
+	case "esc", "o":
+		// Save settings on exit
+		a.saveSettings()
+		// Return to main view
 		a.view = MainView
+		return a, nil
+
+	case "tab", "shift+tab":
+		// Switch between inputs
+		if a.pomodoroDurationInput.Focused() {
+			a.pomodoroDurationInput.Blur()
+			a.shortBreakDurationInput.Focus()
+		} else if a.shortBreakDurationInput.Focused() {
+			a.shortBreakDurationInput.Blur()
+			a.longBreakDurationInput.Focus()
+		} else {
+			a.longBreakDurationInput.Blur()
+			a.pomodoroDurationInput.Focus()
+		}
+
+	case "enter":
+		// Save settings using the saveSettings method
+		a.saveSettings()
+
+		// Return to main view after saving
+		a.view = MainView
+		a.pomodoroDurationInput.Blur()
+		a.shortBreakDurationInput.Blur()
+		a.longBreakDurationInput.Blur()
+
+	case "?": // Toggle help text visibility
+		a.showHelpText = !a.showHelpText
+		return a, nil
+	}
+
+	// Handle text input updates
+	if a.pomodoroDurationInput.Focused() {
+		a.pomodoroDurationInput, cmd = a.pomodoroDurationInput.Update(msg)
+		return a, cmd
+	} else if a.shortBreakDurationInput.Focused() {
+		a.shortBreakDurationInput, cmd = a.shortBreakDurationInput.Update(msg)
+		return a, cmd
+	} else if a.longBreakDurationInput.Focused() {
+		a.longBreakDurationInput, cmd = a.longBreakDurationInput.Update(msg)
+		return a, cmd
 	}
 
 	return a, nil
+}
+
+// updateSettingsInputs updates the input fields with current settings values
+func (a *App) updateSettingsInputs() {
+	a.pomodoroDurationInput.SetValue(fmt.Sprintf("%d", a.settingsManager.Settings.PomodoroDuration))
+	a.shortBreakDurationInput.SetValue(fmt.Sprintf("%d", a.settingsManager.Settings.ShortBreakDuration))
+	a.longBreakDurationInput.SetValue(fmt.Sprintf("%d", a.settingsManager.Settings.LongBreakDuration))
 }
 
 // View renders the current UI
@@ -407,7 +522,7 @@ func (a *App) mainView() string {
 	innerBoxStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		Width(a.width - 10).
-		Height(a.height - 4)
+		Height(a.height - 10) // Reduce height to make room for help text
 
 	// Render the timer component
 	timerSection := lipgloss.NewStyle().
@@ -423,9 +538,6 @@ func (a *App) mainView() string {
 
 	// Render the task list component but reduce its padding
 	a.taskListView.SetWidth(a.width - 40) // Adjust width to account for inner box padding
-	// taskListSection := lipgloss.NewStyle().
-	// 	AlignHorizontal(lipgloss.Center).
-	// 	Render(a.taskListView.Render())
 	taskListSection := lipgloss.PlaceHorizontal(
 		a.width-10,
 		lipgloss.Center,
@@ -451,7 +563,19 @@ func (a *App) mainView() string {
 			Render(fmt.Sprintf("\nPress [F2] to cycle debug modes"))
 	}
 
-	return mainContainerStyle.Render(styledContent + debugModeText)
+	// Help text section
+	helpStyle := lipgloss.NewStyle().
+		Foreground(ColorGrayText).
+		Align(lipgloss.Center).
+		PaddingTop(1)
+
+	helpTextContent := ""
+	if a.showHelpText {
+		helpTextContent = helpStyle.Render(
+			"\n[S] Start/Pause  [s] Stop  [r] Reset  [n] New Task  [o] Settings  [h] Toggle Completed  [Space] Toggle Selected  [Enter] Run Task  [Ctrl+C/q] Quit  [?] Hide Help")
+	}
+
+	return mainContainerStyle.Render(styledContent + helpTextContent + debugModeText)
 }
 
 func (a *App) debugView() string {
@@ -521,14 +645,14 @@ func (a *App) debugView() string {
 	return baseStyle.Render(builder.String())
 }
 
-// addTaskView renders the view for adding a new task
+// addTaskView renders the add task view
 func (a *App) addTaskView() string {
 	var builder strings.Builder
 
 	builder.WriteString(TitleStyle.Render("Add New Task"))
 	builder.WriteString("\n\n")
 
-	builder.WriteString("Task Description:\n")
+	builder.WriteString("Task Name:\n")
 	builder.WriteString(a.taskInput.View())
 	builder.WriteString("\n\n")
 
@@ -536,7 +660,12 @@ func (a *App) addTaskView() string {
 	builder.WriteString(a.pomodorosInput.View())
 	builder.WriteString("\n\n")
 
-	builder.WriteString("Press Enter to add, Esc to cancel, Tab to switch fields")
+	// Instructions with help toggle
+	if a.showHelpText {
+		builder.WriteString("Press Enter to add, Esc to cancel, Tab to switch fields, ? to hide help")
+	} else {
+		builder.WriteString("Press ? to show help")
+	}
 
 	return BoxStyle.Render(builder.String())
 }
@@ -548,10 +677,38 @@ func (a *App) settingsView() string {
 	builder.WriteString(TitleStyle.Render("Settings"))
 	builder.WriteString("\n\n")
 
-	builder.WriteString("Not implemented yet.")
+	// Initialize input values when opening the settings view
+	if !a.pomodoroDurationInput.Focused() &&
+		!a.shortBreakDurationInput.Focused() &&
+		!a.longBreakDurationInput.Focused() {
+		a.updateSettingsInputs()
+		a.pomodoroDurationInput.Focus()
+	}
+
+	// Pomodoro Duration
+	builder.WriteString(lipgloss.NewStyle().Bold(true).Render("Pomodoro Duration (minutes):"))
+	builder.WriteString("\n")
+	builder.WriteString(a.pomodoroDurationInput.View())
 	builder.WriteString("\n\n")
 
-	builder.WriteString("Press Esc to go back")
+	// Short Break Duration
+	builder.WriteString(lipgloss.NewStyle().Bold(true).Render("Short Break Duration (minutes):"))
+	builder.WriteString("\n")
+	builder.WriteString(a.shortBreakDurationInput.View())
+	builder.WriteString("\n\n")
+
+	// Long Break Duration
+	builder.WriteString(lipgloss.NewStyle().Bold(true).Render("Long Break Duration (minutes):"))
+	builder.WriteString("\n")
+	builder.WriteString(a.longBreakDurationInput.View())
+	builder.WriteString("\n\n")
+
+	// Instructions with help toggle
+	if a.showHelpText {
+		builder.WriteString("Press Enter to save, Esc to cancel, Tab to switch fields, ? to hide help")
+	} else {
+		builder.WriteString("Press ? to show help")
+	}
 
 	return BoxStyle.Render(builder.String())
 }
@@ -632,4 +789,37 @@ func (a *App) RenderTaskListView() string {
 
 	// Use the existing debugView method to render
 	return a.debugView()
+}
+
+// saveSettings saves the current settings via the storage manager
+func (a *App) saveSettings() {
+	// Apply current input values to settings
+	if a.pomodoroDurationInput.Value() != "" {
+		var minutes int
+		fmt.Sscanf(a.pomodoroDurationInput.Value(), "%d", &minutes)
+		if minutes > 0 {
+			a.settingsManager.SetPomodoroDuration(minutes)
+		}
+	}
+
+	if a.shortBreakDurationInput.Value() != "" {
+		var minutes int
+		fmt.Sscanf(a.shortBreakDurationInput.Value(), "%d", &minutes)
+		if minutes > 0 {
+			a.settingsManager.SetShortBreakDuration(minutes)
+		}
+	}
+
+	if a.longBreakDurationInput.Value() != "" {
+		var minutes int
+		fmt.Sscanf(a.longBreakDurationInput.Value(), "%d", &minutes)
+		if minutes > 0 {
+			a.settingsManager.SetLongBreakDuration(minutes)
+		}
+	}
+
+	// Save to storage
+	if a.storageManager != nil {
+		_ = a.storageManager.SaveSettings()
+	}
 }

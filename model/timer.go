@@ -29,12 +29,9 @@ const (
 	LongBreakMode
 )
 
-// Default timer durations
+// Default pomodoros per cycle
 const (
-	DefaultFocusDuration      = 25 * time.Minute
-	DefaultShortBreakDuration = 5 * time.Minute
-	DefaultLongBreakDuration  = 15 * time.Minute
-	DefaultPomodorosPerCycle  = 4
+	DefaultPomodorosPerCycle = 4
 )
 
 // Timer represents a pomodoro timer
@@ -55,146 +52,177 @@ type Timer struct {
 	PomodorosPerCycle int
 	// The current active task (nil if none)
 	CurrentTask *Task
+	// Settings for timer durations
+	Settings *Settings
 }
 
 // NewTimer creates a new timer with default settings
 func NewTimer() *Timer {
+	// Create with default settings
+	settings := DefaultSettings()
+
 	return &Timer{
 		State:              TimerStopped,
 		Mode:               FocusMode,
-		Remaining:          DefaultFocusDuration,
-		Duration:           DefaultFocusDuration,
+		Remaining:          settings.GetPomodoroDuration(),
+		Duration:           settings.GetPomodoroDuration(),
 		CompletedPomodoros: 0,
 		PomodorosPerCycle:  DefaultPomodorosPerCycle,
 		CurrentTask:        nil,
+		Settings:           &settings,
+	}
+}
+
+// SetSettings updates the timer's settings
+func (t *Timer) SetSettings(settings *Settings) {
+	t.Settings = settings
+	// Update duration if timer is stopped
+	if t.State == TimerStopped {
+		t.updateDurationFromSettings()
+	}
+}
+
+// updateDurationFromSettings updates the timer duration based on current mode and settings
+func (t *Timer) updateDurationFromSettings() {
+	// Update the mode duration
+	switch t.Mode {
+	case FocusMode:
+		t.Duration = t.Settings.GetPomodoroDuration()
+	case ShortBreakMode:
+		t.Duration = t.Settings.GetShortBreakDuration()
+	case LongBreakMode:
+		t.Duration = t.Settings.GetLongBreakDuration()
+	}
+
+	// Only reset the remaining time if the timer is stopped
+	if t.State == TimerStopped {
+		t.Remaining = t.Duration
 	}
 }
 
 // Start starts the timer
 func (t *Timer) Start() {
+	// If the timer is already paused, resume it instead of resetting
+	if t.State == TimerPaused {
+		// Use Resume logic
+		t.Resume()
+		return
+	}
+
+	// Otherwise, start a fresh timer
 	t.State = TimerRunning
 	t.StartTime = time.Now()
+	t.updateDurationFromSettings()
 }
 
-// Stop stops the timer and resets it
+// Stop stops the timer
 func (t *Timer) Stop() {
 	t.State = TimerStopped
-	t.Remaining = t.Duration
+	// Reset to initial duration based on current mode
+	t.updateDurationFromSettings()
+}
 
-	// If we were tracking time for a task, add the elapsed time
-	if t.CurrentTask != nil && t.Mode == FocusMode {
-		elapsed := t.Duration - t.Remaining
-		if elapsed > 0 {
-			// Increment the time spent on the task
-			task := *t.CurrentTask
-			task.AddTimeSpent(elapsed)
-			*t.CurrentTask = task
-		}
-	}
+// Reset resets the timer to its initial state for the current mode
+func (t *Timer) Reset() {
+	t.State = TimerStopped
+	t.updateDurationFromSettings()
 }
 
 // Pause pauses the timer
 func (t *Timer) Pause() {
 	if t.State == TimerRunning {
 		t.State = TimerPaused
+		// Calculate remaining time
 		elapsed := time.Since(t.StartTime)
-		t.Remaining -= elapsed
-
-		// If we were tracking time for a task, add the elapsed time
-		if t.CurrentTask != nil && t.Mode == FocusMode {
-			if elapsed > 0 {
-				// Increment the time spent on the task
-				task := *t.CurrentTask
-				task.AddTimeSpent(elapsed)
-				*t.CurrentTask = task
-			}
+		t.Remaining = t.Duration - elapsed
+		if t.Remaining < 0 {
+			t.Remaining = 0
 		}
 	}
 }
 
-// Resume resumes a paused timer
+// Resume resumes the timer from a paused state
 func (t *Timer) Resume() {
 	if t.State == TimerPaused {
 		t.State = TimerRunning
-		t.StartTime = time.Now()
+		t.StartTime = time.Now().Add(-t.Duration + t.Remaining)
 	}
 }
 
-// Reset resets the timer to its initial state
-func (t *Timer) Reset() {
-	t.State = TimerStopped
-	t.Remaining = t.Duration
-}
-
-// SetCurrentTask sets the current active task
+// SetCurrentTask sets the current task
 func (t *Timer) SetCurrentTask(task Task) {
-	taskPtr := &task
-	t.CurrentTask = taskPtr
+	t.CurrentTask = &task
 }
 
-// Update updates the timer state, should be called regularly
+// Update updates the timer's state and returns true if the timer completed
 func (t *Timer) Update() bool {
-	// Only update time if the timer is running
-	if t.State == TimerRunning {
-		elapsed := time.Since(t.StartTime)
-		t.Remaining = t.Duration - elapsed
-
-		// Check if timer has finished
-		if t.Remaining <= 0 {
-			t.Remaining = 0
-
-			// Update task if in focus mode
-			if t.Mode == FocusMode && t.CurrentTask != nil {
-				// Increment completed pomodoros for the task
-				task := *t.CurrentTask
-				task.AddCompletedPomodoro()
-				task.AddTimeSpent(t.Duration)
-				*t.CurrentTask = task
-
-				// Increment the timer's completed pomodoros
-				t.CompletedPomodoros++
-			}
-
-			// Advance to the next timer mode
-			t.advanceTimerMode()
-			return true // Timer completed
-		}
+	if t.State != TimerRunning {
+		return false
 	}
 
-	return false // Timer not completed
+	// Calculate remaining time
+	elapsed := time.Since(t.StartTime)
+	t.Remaining = t.Duration - elapsed
+
+	// Check if timer has finished
+	if t.Remaining <= 0 {
+		t.Remaining = 0
+		t.State = TimerStopped
+
+		// If we were in focus mode, increment completed pomodoros
+		if t.Mode == FocusMode {
+			t.CompletedPomodoros++
+
+			// Update current task if one is set
+			if t.CurrentTask != nil {
+				t.CurrentTask.AddCompletedPomodoro()
+				t.CurrentTask.AddTimeSpent(t.Duration)
+			}
+		}
+
+		// Advance to the next timer mode
+		t.advanceTimerMode()
+
+		return true // Timer completed
+	}
+
+	return false // Timer still running
 }
 
-// advanceTimerMode advances to the next timer mode after completion
+// advanceTimerMode moves to the next timer mode based on the completed pomodoros
 func (t *Timer) advanceTimerMode() {
 	switch t.Mode {
 	case FocusMode:
-		// After focus time, check if we need a long or short break
+		// After focus mode, decide if we need a short or long break
 		if t.CompletedPomodoros%t.PomodorosPerCycle == 0 {
+			// Long break after completing a cycle
 			t.Mode = LongBreakMode
-			t.Duration = DefaultLongBreakDuration
+			t.Duration = t.Settings.GetLongBreakDuration()
 		} else {
+			// Short break after individual pomodoro
 			t.Mode = ShortBreakMode
-			t.Duration = DefaultShortBreakDuration
+			t.Duration = t.Settings.GetShortBreakDuration()
 		}
 	case ShortBreakMode, LongBreakMode:
 		// After any break, go back to focus mode
 		t.Mode = FocusMode
-		t.Duration = DefaultFocusDuration
+		t.Duration = t.Settings.GetPomodoroDuration()
 	}
 
-	// Reset timer for the new mode
-	t.Reset()
-	t.State = TimerStopped
+	t.Remaining = t.Duration
 }
 
-// FormatTime formats the remaining time as MM:SS
+// FormatTime formats the remaining time as mm:ss
 func (t *Timer) FormatTime() string {
 	minutes := int(t.Remaining.Minutes())
 	seconds := int(t.Remaining.Seconds()) % 60
 	return fmt.Sprintf("%02d:%02d", minutes, seconds)
 }
 
-// ProgressPercentage returns the progress percentage (0.0-1.0)
+// ProgressPercentage returns the percentage of time elapsed
 func (t *Timer) ProgressPercentage() float64 {
-	return 1.0 - float64(t.Remaining)/float64(t.Duration)
+	if t.Duration <= 0 {
+		return 0
+	}
+	return 100.0 * (1.0 - float64(t.Remaining)/float64(t.Duration))
 }
