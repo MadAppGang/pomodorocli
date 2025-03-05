@@ -294,9 +294,19 @@ func (t *TaskListView) renderTaskList() string {
 		}
 		fullTaskLine += " "
 		fullTaskLine += renderedProgress
-		fullTaskLine += strings.Repeat(" ", 8-progressWidth) // Fixed spacing after progress
+		// Ensure spacing is never negative
+		spacingAfterProgress := 8 - progressWidth
+		if spacingAfterProgress < 0 {
+			spacingAfterProgress = 0
+		}
+		fullTaskLine += strings.Repeat(" ", spacingAfterProgress) // Fixed spacing after progress
 		fullTaskLine += renderedTime
-		fullTaskLine += strings.Repeat(" ", 4-timeWidth) // Fixed spacing after time
+		// Ensure spacing is never negative
+		spacingAfterTime := 4 - timeWidth
+		if spacingAfterTime < 0 {
+			spacingAfterTime = 0
+		}
+		fullTaskLine += strings.Repeat(" ", spacingAfterTime) // Fixed spacing after time
 		fullTaskLine += renderedDesc
 
 		tasks = append(tasks, fullTaskLine)
