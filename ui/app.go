@@ -133,6 +133,18 @@ func NewApp() *App {
 		if err := storageManager.LoadSettings(); err != nil {
 			// If loading fails, we'll use default settings
 			fmt.Println("Error loading settings:", err)
+		} else {
+			// Debug: Print loaded settings
+			fmt.Printf("Loaded settings - Pomodoro: %d, Short break: %d, Long break: %d\n",
+				settingsManager.Settings.PomodoroDuration,
+				settingsManager.Settings.ShortBreakDuration,
+				settingsManager.Settings.LongBreakDuration)
+
+			// Make sure the timer is updated with the loaded settings
+			timer.SetSettings(&settingsManager.Settings)
+
+			// Explicitly reset the timer to ensure it uses the loaded duration
+			timer.Reset()
 		}
 	}
 
@@ -176,6 +188,15 @@ func NewApp() *App {
 	settingsManager.RegisterChangeHandler(func() {
 		// Update timer with new settings
 		timer.SetSettings(&settingsManager.Settings)
+
+		// Explicitly reset the timer when settings change
+		timer.Reset()
+
+		// Debug: Print settings after change
+		fmt.Printf("Settings changed - Pomodoro: %d, Short break: %d, Long break: %d\n",
+			settingsManager.Settings.PomodoroDuration,
+			settingsManager.Settings.ShortBreakDuration,
+			settingsManager.Settings.LongBreakDuration)
 
 		// Save settings on change
 		if storageManager != nil {

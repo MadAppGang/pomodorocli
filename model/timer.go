@@ -76,10 +76,8 @@ func NewTimer() *Timer {
 // SetSettings updates the timer's settings
 func (t *Timer) SetSettings(settings *Settings) {
 	t.Settings = settings
-	// Update duration if timer is stopped
-	if t.State == TimerStopped {
-		t.updateDurationFromSettings()
-	}
+	// Always update the duration to reflect the new settings
+	t.updateDurationFromSettings()
 }
 
 // updateDurationFromSettings updates the timer duration based on current mode and settings
