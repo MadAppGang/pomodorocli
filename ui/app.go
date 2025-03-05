@@ -346,30 +346,37 @@ func (a *App) mainView() string {
 	// Regular rendering for normal mode
 	// Create main container with the background color
 	mainContainerStyle := lipgloss.NewStyle().
-		Background(ColorBackground).
 		Padding(1, 2).
 		Width(a.width - 4)
 
 	// Create inner box with rounded borders - using ColorBackground instead of ColorBoxBackground
 	innerBoxStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(ColorBorder).
-		Background(ColorBackground).
-		Padding(0, 2). // Remove vertical padding
-		Width(a.width - 8)
+		Width(a.width - 10).
+		Height(a.height - 4)
 
 	// Render the timer component
-	timerSection := a.timerView.Render()
+	timerSection := lipgloss.NewStyle().
+		MarginTop(2). // 2 lines of margin at the top
+		Render(a.timerView.Render())
 
 	// Create divider with proper styling
 	divider := lipgloss.NewStyle().
 		Foreground(ColorGrayText).
+		Padding(0, 0, 2, 0).
+		AlignHorizontal(lipgloss.Center).
 		Render(strings.Repeat("─", a.width-16))
 
 	// Render the task list component but reduce its padding
-	a.taskListView.SetWidth(a.width - 12) // Adjust width to account for inner box padding
-	taskListSection := a.taskListView.Render()
-
+	a.taskListView.SetWidth(a.width - 40) // Adjust width to account for inner box padding
+	// taskListSection := lipgloss.NewStyle().
+	// 	AlignHorizontal(lipgloss.Center).
+	// 	Render(a.taskListView.Render())
+	taskListSection := lipgloss.PlaceHorizontal(
+		a.width-10,
+		lipgloss.Center,
+		a.taskListView.Render(),
+	)
 	// Assemble the inner content
 	innerContent := lipgloss.JoinVertical(
 		lipgloss.Center,

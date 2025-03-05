@@ -106,7 +106,7 @@ func (t *TaskListView) renderTaskList() string {
 			indicator := lipgloss.NewStyle().
 				Foreground(ColorTaskTag). // Use purple from the task tag
 				Bold(true).
-				Render("✨ ")
+				Render("👉 ")
 			taskNumber = fmt.Sprintf("%s%d", indicator, i+1)
 		} else {
 			// Add padding for non-selected tasks to maintain alignment
@@ -228,9 +228,9 @@ func (t *TaskListView) renderTaskControls() string {
 	// Match the Figma design styling for controls
 	var hideCompletedText string
 	if t.taskManager.ShowCompleted {
-		hideCompletedText = "Hide completed tasks"
+		hideCompletedText = "[H] Hide completed tasks"
 	} else {
-		hideCompletedText = "Show completed tasks"
+		hideCompletedText = "[H] Show completed tasks"
 	}
 
 	// Render hide completed control without margin or explicit background

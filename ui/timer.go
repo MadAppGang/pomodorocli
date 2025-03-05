@@ -73,7 +73,7 @@ func (t *TimerView) Render() string {
 	if fontInfo != "" {
 		components = append(components, fontInfo)
 	}
-	
+
 	// Compact rendering of components
 	components = append(components, currentTask, timer, progressBar, controls)
 
@@ -88,10 +88,14 @@ func (t *TimerView) Render() string {
 
 // renderCurrentTask renders the current active task (if any)
 func (t *TimerView) renderCurrentTask() string {
-	if t.timer.CurrentTask != nil {
-		return CurrentTaskStyle.Background(nil).Render("+task " + t.timer.CurrentTask.Description)
+	if t.timer.CurrentTask != nil && t.timer.State == model.TimerRunning {
+		return CurrentTaskStyle.
+			PaddingBottom(1).
+			Render(TaskProgressStyle.Render("+task ") + t.timer.CurrentTask.Description)
 	}
-	return CurrentTaskStyle.Background(nil).Render("Select a task to start")
+	return CurrentTaskStyle.
+		PaddingBottom(1).
+		Render("Select a task to start")
 }
 
 // renderTimer renders the timer display using large ASCII characters

@@ -95,9 +95,7 @@ var (
 	// Current task display - no background
 	CurrentTaskStyle = lipgloss.NewStyle().
 				Foreground(ColorText).
-				Align(lipgloss.Center).
-				MarginBottom(1)
-
+				Align(lipgloss.Center)
 	// Stop button - no background
 	StopButtonStyle = lipgloss.NewStyle().
 			Foreground(ColorStopButton).
