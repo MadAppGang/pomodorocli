@@ -187,12 +187,6 @@ func NewApp() *App {
 		// Explicitly reset the timer when settings change
 		timer.Reset()
 
-		// Debug: Print settings after change
-		fmt.Printf("Settings changed - Pomodoro: %d, Short break: %d, Long break: %d\n",
-			settingsManager.Settings.PomodoroDuration,
-			settingsManager.Settings.ShortBreakDuration,
-			settingsManager.Settings.LongBreakDuration)
-
 		// Save settings on change
 		if storageManager != nil {
 			_ = storageManager.SaveSettings()
