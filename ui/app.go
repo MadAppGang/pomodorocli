@@ -350,17 +350,17 @@ func (a *App) mainView() string {
 		Padding(1, 2).
 		Width(a.width - 4)
 
-	// Create inner box with rounded borders
+	// Create inner box with rounded borders - using ColorBackground instead of ColorBoxBackground
 	innerBoxStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(ColorBorder).
-		Background(ColorBoxBackground).
+		Background(ColorBackground).
 		Padding(0, 2). // Remove vertical padding
 		Width(a.width - 8)
 
 	// Render the timer component
 	timerSection := a.timerView.Render()
-	
+
 	// Create divider with proper styling
 	divider := lipgloss.NewStyle().
 		Foreground(ColorGrayText).
@@ -393,6 +393,9 @@ func (a *App) mainView() string {
 }
 
 func (a *App) debugView() string {
+	// Create a base style with the correct background color for the entire debug view
+	baseStyle := lipgloss.NewStyle()
+
 	var builder strings.Builder
 	var debugTitle, debugContent, exitMessage string
 
@@ -408,10 +411,11 @@ func (a *App) debugView() string {
 			verticalPadding = 0
 		}
 
-		// Add vertical padding
-		paddedTimer := strings.Repeat("\n", verticalPadding) + timerSection
+		// Add vertical padding with background color
+		paddingStyle := lipgloss.NewStyle()
+		paddedTimer := strings.Repeat(paddingStyle.Render("\n"), verticalPadding) + timerSection
 
-		// Center the timer horizontally
+		// Center the timer horizontally with background
 		debugContent = lipgloss.PlaceHorizontal(a.width, lipgloss.Center, paddedTimer)
 
 	} else if a.debugMode == TaskListDebug {
@@ -419,37 +423,41 @@ func (a *App) debugView() string {
 
 		// Render task list view with background
 		tasksContent := a.taskListView.Render()
+		// tasksContent := "a.taskListView.Render()\n\n\n\n\\n debugView()"
 
-		// Apply consistent background styling
+		// Make it half the width for better readability but don't add background
 		containerStyle := lipgloss.NewStyle().
-			Background(ColorBoxBackground).
 			Padding(1, 2).
-			Width(a.width - 20) // Make it half the width for better readability
+			Width(a.width - 20)
 
 		// Apply styling and center
 		styledTaskList := containerStyle.Render(tasksContent)
 
-		// Center the task list horizontally and add some vertical padding
+		// Center the task list horizontally and add some vertical padding with background
 		verticalPadding := (a.height - 30) / 4 // Less padding than timer as task list is taller
 		if verticalPadding < 0 {
 			verticalPadding = 0
 		}
 
-		paddedTaskList := strings.Repeat("\n", verticalPadding) + styledTaskList
+		paddingStyle := lipgloss.NewStyle()
+		paddedTaskList := strings.Repeat(paddingStyle.Render("\n"), verticalPadding) + styledTaskList
 		debugContent = lipgloss.PlaceHorizontal(a.width, lipgloss.Center, paddedTaskList)
 	}
 
-	// Render debug title and content
-	builder.WriteString(debugStyle().Render(debugTitle))
-	builder.WriteString("\n\n")
+	// Render debug title and content with background
+	debugTitleStyle := debugStyle()
+	builder.WriteString(debugTitleStyle.Render(debugTitle))
+	builder.WriteString(lipgloss.NewStyle().Render("\n\n"))
 	builder.WriteString(debugContent)
-	builder.WriteString("\n\n")
+	builder.WriteString(lipgloss.NewStyle().Render("\n\n"))
 
-	// Exit message
-	exitMessage = debugStyle().Render("Press [D] to cycle debug modes")
+	// Exit message with background
+	exitMessageStyle := debugStyle()
+	exitMessage = exitMessageStyle.Render("Press [D] to cycle debug modes")
 	builder.WriteString(lipgloss.PlaceHorizontal(a.width, lipgloss.Center, exitMessage))
 
-	return builder.String() // No need for AppStyle here
+	// Apply the background to the entire view
+	return baseStyle.Render(builder.String())
 }
 
 // addTaskView renders the view for adding a new task
@@ -522,7 +530,7 @@ func (a *App) RenderMainView() string {
 		a.taskManager.AddTask("Test the prototype with users", 3)
 		a.taskManager.AddTask("Create a design concept for the Evergen App / Link", 3)
 	}
-	
+
 	// Use the existing mainView method to render
 	return a.mainView()
 }
@@ -535,10 +543,10 @@ func (a *App) RenderTimerView() string {
 		task := a.taskManager.AddTask("Work on design concept", 4)
 		a.timer.SetCurrentTask(task)
 	}
-	
+
 	// Force timer debug mode
 	a.debugMode = TimerDebug
-	
+
 	// Use the existing debugView method to render
 	return a.debugView()
 }
@@ -552,10 +560,10 @@ func (a *App) RenderTaskListView() string {
 		a.taskManager.AddTask("Test the prototype with users", 3)
 		a.taskManager.AddTask("Create a design concept for the Evergen App / Link", 3)
 	}
-	
+
 	// Force task list debug mode
 	a.debugMode = TaskListDebug
-	
+
 	// Use the existing debugView method to render
 	return a.debugView()
 }

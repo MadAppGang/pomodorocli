@@ -73,6 +73,7 @@ func (t *TaskListView) SetCurrentTask(task *model.Task) {
 func (t *TaskListView) Render() string {
 	// Get content
 	taskControls := t.renderTaskControls()
+	// taskControls := ""
 	tasksContent := t.renderTaskList()
 
 	// Combine the content
@@ -84,7 +85,6 @@ func (t *TaskListView) Render() string {
 
 	// Apply a consistent background color to the entire component
 	return lipgloss.NewStyle().
-		Background(ColorBackground).
 		Padding(0, 2). // Horizontal padding only, no vertical padding
 		Width(t.width).
 		Render(combined)
@@ -142,7 +142,7 @@ func (t *TaskListView) renderTaskList() string {
 		// Apply styling based on state
 		var taskNumberStyle, taskDescStyle, taskProgressStyle, taskTimeStyle lipgloss.Style
 
-		// Base styles - remove background color since container has it
+		// Base styles - no explicit background
 		taskNumberStyle = TaskStyle
 		taskDescStyle = TaskStyle
 		taskProgressStyle = TaskProgressStyle
@@ -157,7 +157,7 @@ func (t *TaskListView) renderTaskList() string {
 
 		// Current task styling
 		if isCurrentTask {
-			taskDescStyle = CurrentTaskStyle.Background(ColorBackground) // Set explicit background
+			taskDescStyle = CurrentTaskStyle
 			taskDescStyle = taskDescStyle.Bold(true)
 		}
 
@@ -171,8 +171,11 @@ func (t *TaskListView) renderTaskList() string {
 		renderedNumber := taskNumberStyle.Render(taskNumber)
 		renderedProgress := taskProgressStyle.Render(taskProgress)
 		renderedTime := taskTimeStyle.Render(taskTimeSpent)
+
 		// Add +task prefix for the task description
-		renderedDesc := fmt.Sprintf("%s %s", taskProgressStyle.Render("+task"), taskDescStyle.Render(taskDescription))
+		renderedDesc := fmt.Sprintf("%s %s",
+			taskProgressStyle.Render("+task"),
+			taskDescStyle.Render(taskDescription))
 
 		// Adjust the layout based on reference screenshot
 		// Based on the screenshot, we need specific ordering and spacing:
@@ -213,12 +216,13 @@ func (t *TaskListView) renderTaskList() string {
 	addNewTaskStyle := AddNewTaskStyle.PaddingTop(1)
 	tasks = append(tasks, addNewTaskStyle.Render("Add new task [N]"))
 
+	// Just join the tasks vertically without additional wrapping
 	return lipgloss.JoinVertical(lipgloss.Left, tasks...)
 }
 
 // renderTaskControls returns the rendered task controls
 func (t *TaskListView) renderTaskControls() string {
-	// Use a header without margin
+	// Use a header without explicit background
 	tasksHeader := TasksHeaderStyle.Render("Tasks")
 
 	// Match the Figma design styling for controls
@@ -229,12 +233,15 @@ func (t *TaskListView) renderTaskControls() string {
 		hideCompletedText = "Show completed tasks"
 	}
 
-	// Render hide completed control without margin
+	// Render hide completed control without margin or explicit background
 	hideCompleted := HideCompletedStyle.
 		MarginTop(0).
 		MarginBottom(0).
 		Render(hideCompletedText)
 
-	// Only show Hide completed tasks at the top
-	return lipgloss.JoinHorizontal(lipgloss.Left, tasksHeader, "       ", hideCompleted)
+	// Simple spacer without explicit background
+	spacer := "       "
+
+	// Join horizontally without explicit background wrapping
+	return lipgloss.JoinHorizontal(lipgloss.Left, tasksHeader, spacer, hideCompleted)
 }

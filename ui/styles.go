@@ -64,6 +64,7 @@ var (
 			BorderLeft(true).
 			BorderRight(true).
 			BorderBottom(true).
+			Background(ColorBackground).
 			Padding(1, 2).
 			Width(termWidth - 8)
 
@@ -123,13 +124,11 @@ var (
 	// Hide completed tasks - no background
 	HideCompletedStyle = lipgloss.NewStyle().
 				Foreground(ColorHideCompleted).
-				Background(ColorBackground).
 				Bold(true)
 
 	// Add new task - no background
 	AddNewTaskStyle = lipgloss.NewStyle().
 			Foreground(ColorAddNewTask).
-			Background(ColorBackground).
 			Bold(true)
 
 	// Menu item style - no background
