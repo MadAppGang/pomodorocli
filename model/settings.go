@@ -12,14 +12,17 @@ type Settings struct {
 	ShortBreakDuration int `json:"short_break_duration"`
 	// Long break duration in minutes
 	LongBreakDuration int `json:"long_break_duration"`
+	// Automatically start breaks after pomodoro completes
+	AutoStartBreaks bool `json:"auto_start_breaks"`
 }
 
 // DefaultSettings creates and returns default settings
 func DefaultSettings() Settings {
 	return Settings{
-		PomodoroDuration:   25, // Default: 25 minutes
-		ShortBreakDuration: 5,  // Default: 5 minutes
-		LongBreakDuration:  30, // Default: 30 minutes
+		PomodoroDuration:   25,    // Default: 25 minutes
+		ShortBreakDuration: 5,     // Default: 5 minutes
+		LongBreakDuration:  30,    // Default: 30 minutes
+		AutoStartBreaks:    false, // Default: don't auto-start breaks
 	}
 }
 

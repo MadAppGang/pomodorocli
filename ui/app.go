@@ -314,6 +314,10 @@ func (a *App) updateMainView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Reset timer to full duration
 		a.timer.Reset()
 
+	case "B", "b":
+		// Skip the current break
+		a.timer.SkipBreak()
+
 	case "N", "n":
 		// Add new task
 		a.view = AddTaskView
@@ -491,7 +495,14 @@ func (a *App) updateSettingsView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		a.shortBreakDurationInput.Blur()
 		a.longBreakDurationInput.Blur()
 
-	case "?": // Toggle help text visibility
+	case "a", "A":
+		// Toggle auto-start breaks
+		a.settingsManager.Settings.AutoStartBreaks = !a.settingsManager.Settings.AutoStartBreaks
+		// Save settings after toggling
+		a.saveSettings()
+
+	case "?":
+		// Toggle help text visibility
 		a.showHelpText = !a.showHelpText
 		return a, nil
 	}
@@ -740,6 +751,21 @@ func (a *App) settingsView() string {
 	builder.WriteString(lipgloss.NewStyle().Bold(true).Render("Long Break Duration (minutes):"))
 	builder.WriteString("\n")
 	builder.WriteString(a.longBreakDurationInput.View())
+	builder.WriteString("\n\n")
+
+	// Auto-start Breaks Option
+	autoStartStatus := "OFF"
+	autoStartColor := lipgloss.Color("#BB566B") // Red-ish for OFF
+	if a.settingsManager.Settings.AutoStartBreaks {
+		autoStartStatus = "ON"
+		autoStartColor = lipgloss.Color("#7BC0AB") // Green-ish for ON
+	}
+
+	builder.WriteString(lipgloss.NewStyle().Bold(true).Render("Auto-start breaks:"))
+	builder.WriteString(" ")
+	builder.WriteString(lipgloss.NewStyle().Foreground(autoStartColor).Bold(true).Render(autoStartStatus))
+	builder.WriteString(" ")
+	builder.WriteString(lipgloss.NewStyle().Foreground(ColorGrayText).Render("[A] to toggle"))
 	builder.WriteString("\n\n")
 
 	// Instructions with help toggle

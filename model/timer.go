@@ -202,6 +202,12 @@ func (t *Timer) Update() bool {
 		// Advance to the next timer mode
 		t.advanceTimerMode()
 
+		// Auto-start breaks if enabled in settings and we're in a break mode
+		if t.Settings != nil && t.Settings.AutoStartBreaks &&
+			(t.Mode == ShortBreakMode || t.Mode == LongBreakMode) {
+			t.Start()
+		}
+
 		return true // Timer completed
 	}
 
@@ -244,4 +250,22 @@ func (t *Timer) ProgressPercentage() float64 {
 		return 0
 	}
 	return 100.0 * (1.0 - float64(t.Remaining)/float64(t.Duration))
+}
+
+// SkipBreak skips the current break and advances to focus mode
+func (t *Timer) SkipBreak() {
+	// Only allow skipping if we're in a break mode
+	if t.Mode == ShortBreakMode || t.Mode == LongBreakMode {
+		// Stop the current timer if it's running
+		t.Stop()
+
+		// Set to focus mode
+		t.Mode = FocusMode
+
+		// Update the duration based on the new mode
+		t.updateDurationFromSettings()
+
+		// Reset the timer to the new duration
+		t.Reset()
+	}
 }

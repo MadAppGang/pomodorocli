@@ -88,6 +88,23 @@ func (t *TimerView) Render() string {
 
 // renderCurrentTask renders the current active task (if any)
 func (t *TimerView) renderCurrentTask() string {
+	// For break modes, show a different message
+	if t.timer.Mode == model.ShortBreakMode || t.timer.Mode == model.LongBreakMode {
+		breakType := "Short break"
+		if t.timer.Mode == model.LongBreakMode {
+			breakType = "Long break"
+		}
+
+		// Use a teal/blue color for breaks
+		breakStyle := CurrentTaskStyle.Copy().
+			Foreground(lipgloss.Color("#7BC0AB"))
+
+		return breakStyle.
+			PaddingBottom(1).
+			Render(breakType + " - Take a rest")
+	}
+
+	// Standard task display for focus mode
 	if t.timer.CurrentTaskID != "" && t.timer.State == model.TimerRunning {
 		// Get the current task from the task manager
 		task, found := t.timer.TaskManager.GetTask(t.timer.CurrentTaskID)
@@ -106,15 +123,25 @@ func (t *TimerView) renderCurrentTask() string {
 func (t *TimerView) renderTimer() string {
 	timeStr := t.timer.FormatTime() // Format like "25:00"
 
+	// Use a different color for break modes
+	timerStyle := TimerStyle
+	if t.timer.Mode == model.ShortBreakMode || t.timer.Mode == model.LongBreakMode {
+		// Use a teal/blue color for breaks
+		timerStyle = timerStyle.Copy().Foreground(lipgloss.Color("#7BC0AB"))
+	} else {
+		// Use the default white color for focus mode
+		timerStyle = timerStyle.Copy().Foreground(ColorText)
+	}
+
 	// If we have a font manager, use it to render the time string
 	if t.fontManager != nil {
 		// Render the time with the current font
 		bigTimeStr := t.fontManager.RenderTimeString(timeStr)
-		return TimerStyle.Background(nil).Render(bigTimeStr)
+		return timerStyle.Background(nil).Render(bigTimeStr)
 	}
 
 	// Fallback to regular string
-	return TimerStyle.Background(nil).Render(timeStr)
+	return timerStyle.Background(nil).Render(timeStr)
 }
 
 // renderProgressBar renders the timer progress bar
@@ -167,8 +194,23 @@ func (t *TimerView) buildProgressBar(percentage float64) string {
 
 // renderControls renders the timer control buttons
 func (t *TimerView) renderControls() string {
+	var controls string
+
+	// Base control - Start/Stop
 	if t.timer.State == model.TimerRunning {
-		return StopButtonStyle.Background(nil).Render("Stop [S]")
+		controls = StopButtonStyle.Background(nil).Render("Stop [S]")
+	} else {
+		controls = StopButtonStyle.Background(nil).Render("Start [S]")
 	}
-	return StopButtonStyle.Background(nil).Render("Start [S]")
+
+	// Add Skip button during breaks
+	if t.timer.Mode == model.ShortBreakMode || t.timer.Mode == model.LongBreakMode {
+		skipStyle := StopButtonStyle.Copy().
+			Foreground(lipgloss.Color("#7BC0AB"))
+
+		skipButton := skipStyle.Render("   Skip Break [B]")
+		controls = lipgloss.JoinHorizontal(lipgloss.Center, controls, skipButton)
+	}
+
+	return controls
 }
