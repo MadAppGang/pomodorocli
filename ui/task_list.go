@@ -104,6 +104,33 @@ func (t *TaskListView) SetCurrentTask(task *model.Task) {
 	}
 }
 
+// DeleteSelectedTask deletes the currently selected task
+func (t *TaskListView) DeleteSelectedTask() {
+	tasks := t.taskManager.FilteredTasks()
+	if len(tasks) == 0 {
+		return
+	}
+
+	// Get the index of the selected task
+	index := t.selectedIndex % len(tasks)
+	// Get the task
+	task := tasks[index]
+	// Delete the task from the task manager
+	t.taskManager.DeleteTask(task.ID)
+
+	// Adjust selection index to prevent out of bounds
+	if len(t.taskManager.FilteredTasks()) > 0 && t.selectedIndex >= len(t.taskManager.FilteredTasks()) {
+		t.selectedIndex = len(t.taskManager.FilteredTasks()) - 1
+	}
+
+	// If the deleted task was the current task, clear it
+	if t.hasCurrentTask && t.currentTaskID == task.ID {
+		t.currentTask = nil
+		t.hasCurrentTask = false
+		t.currentTaskID = ""
+	}
+}
+
 // Render renders the task list component
 func (t *TaskListView) Render() string {
 	// Get content
@@ -300,9 +327,15 @@ func (t *TaskListView) renderTaskControls() string {
 		MarginBottom(0).
 		Render(hideCompletedText)
 
+	// Add delete task control
+	deleteTask := HideCompletedStyle.
+		MarginTop(0).
+		MarginBottom(0).
+		Render("[D] Delete task")
+
 	// Simple spacer without explicit background
 	spacer := "       "
 
 	// Join horizontally without explicit background wrapping
-	return lipgloss.JoinHorizontal(lipgloss.Left, tasksHeader, spacer, hideCompleted)
+	return lipgloss.JoinHorizontal(lipgloss.Left, tasksHeader, spacer, hideCompleted, spacer, deleteTask)
 }

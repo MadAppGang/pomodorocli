@@ -271,6 +271,18 @@ func (a *App) updateMainView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		a.taskListView.ToggleSelectedTaskComplete()
 
 	case "d":
+		// Delete the selected task
+		if selectedTaskPtr := a.taskListView.GetSelectedTaskPtr(); selectedTaskPtr != nil {
+			a.taskListView.DeleteSelectedTask()
+			// Save tasks after deletion
+			if a.storageManager != nil {
+				if err := a.storageManager.SaveTasks(); err != nil {
+					fmt.Println("Error saving tasks:", err)
+				}
+			}
+		}
+
+	case "f2":
 		// Cycle through debug modes: NoDebug -> TimerDebug -> TaskListDebug -> NoDebug
 		a.debugMode = (a.debugMode + 1) % 3
 
@@ -435,7 +447,8 @@ func (a *App) mainView() string {
 	if a.debugMode != NoDebug {
 		debugModeText = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("205")).
-			Render(fmt.Sprintf("\nPress [D] to cycle debug modes"))
+			Align(lipgloss.Center).
+			Render(fmt.Sprintf("\nPress [F2] to cycle debug modes"))
 	}
 
 	return mainContainerStyle.Render(styledContent + debugModeText)
@@ -496,14 +509,13 @@ func (a *App) debugView() string {
 	// Render debug title and content with background
 	debugTitleStyle := debugStyle()
 	builder.WriteString(debugTitleStyle.Render(debugTitle))
-	builder.WriteString(lipgloss.NewStyle().Render("\n\n"))
+	builder.WriteString("\n")
 	builder.WriteString(debugContent)
-	builder.WriteString(lipgloss.NewStyle().Render("\n\n"))
+	builder.WriteString("\n\n")
 
-	// Exit message with background
 	exitMessageStyle := debugStyle()
-	exitMessage = exitMessageStyle.Render("Press [D] to cycle debug modes")
-	builder.WriteString(lipgloss.PlaceHorizontal(a.width, lipgloss.Center, exitMessage))
+	exitMessage = exitMessageStyle.Render("Press [F2] to cycle debug modes")
+	builder.WriteString(exitMessage)
 
 	// Apply the background to the entire view
 	return baseStyle.Render(builder.String())
