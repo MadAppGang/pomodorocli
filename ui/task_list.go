@@ -101,17 +101,20 @@ func (t *TaskListView) renderTaskList() string {
 
 		// Task number and selection indicator
 		var taskNumber string
+
+		// Add selection indicator if selected
+		var prefix string
 		if isSelected {
-			// Add sparkle emoji indicator for selected task with purple color
-			indicator := lipgloss.NewStyle().
-				Foreground(ColorTaskTag). // Use purple from the task tag
+			prefix = lipgloss.NewStyle().
+				Foreground(ColorTaskTag).
 				Bold(true).
 				Render("👉 ")
-			taskNumber = fmt.Sprintf("%s%d", indicator, i+1)
 		} else {
-			// Add padding for non-selected tasks to maintain alignment
-			taskNumber = fmt.Sprintf("   %d", i+1)
+			prefix = "   "
 		}
+
+		// Prepare task number for rendering, use digits for consistent width
+		taskNumber = fmt.Sprintf("%s%d", prefix, i+1)
 
 		// Task progress
 		taskProgress := task.PomodoroProgress()
@@ -172,6 +175,29 @@ func (t *TaskListView) renderTaskList() string {
 		renderedProgress := taskProgressStyle.Render(taskProgress)
 		renderedTime := taskTimeStyle.Render(taskTimeSpent)
 
+		// For consistency, first get the regular number rendering for spacing calculation
+		regularNumber := taskNumberStyle.Render(taskNumber)
+
+		// Handle special rendering for current task
+		if isCurrentTask {
+			clockEmoji := "⏰"
+			// Keep the same exact width as the regular number by using spaces
+			numberWidth := lipgloss.Width(regularNumber)
+			prefixWidth := lipgloss.Width(prefix)
+
+			// Calculate padding needed (ensure it's not negative)
+			paddingSize := numberWidth - prefixWidth - lipgloss.Width(clockEmoji)
+			if paddingSize < 0 {
+				paddingSize = 0
+			}
+
+			// Create the display with exact spacing: prefix + clock emoji + padding if needed
+			renderedNumber = taskNumberStyle.Render(fmt.Sprintf("%s%s%s",
+				prefix,
+				clockEmoji,
+				strings.Repeat(" ", paddingSize)))
+		}
+
 		// Add +task prefix for the task description
 		renderedDesc := fmt.Sprintf("%s %s",
 			taskProgressStyle.Render("+task"),
@@ -195,9 +221,10 @@ func (t *TaskListView) renderTaskList() string {
 		fullTaskLine = renderedNumber
 		// Adjusted spacing to account for the selection indicator
 		spacingAfterNumber := 1
-		if spacingAfterNumber > 0 {
+		if spacingAfterNumber > 0 && !isCurrentTask {
 			fullTaskLine += strings.Repeat(" ", spacingAfterNumber)
 		}
+		fullTaskLine += " "
 		fullTaskLine += renderedProgress
 		fullTaskLine += strings.Repeat(" ", 8-progressWidth) // Fixed spacing after progress
 		fullTaskLine += renderedTime
