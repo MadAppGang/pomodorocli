@@ -3,11 +3,13 @@ package model
 import (
 	"fmt"
 	"time"
+
+	"github.com/segmentio/ksuid"
 )
 
 // Task represents a single task in the Pomodoro timer
 type Task struct {
-	ID          int       `json:"id"`
+	ID          string    `json:"id"` // Now a string to store the KSUID
 	Description string    `json:"description"`
 	CreatedAt   time.Time `json:"created_at"`
 	Completed   bool      `json:"completed"`
@@ -20,8 +22,11 @@ type Task struct {
 }
 
 // NewTask creates a new task with default values
-func NewTask(id int, description string, plannedPomodoros int) *Task {
-	return &Task{
+func NewTask(description string, plannedPomodoros int) Task {
+	// Generate a new KSUID for the task
+	id := ksuid.New().String()
+
+	return Task{
 		ID:                 id,
 		Description:        description,
 		CreatedAt:          time.Now(),
@@ -51,7 +56,7 @@ func (t *Task) AddTimeSpent(duration time.Duration) {
 }
 
 // FormattedTimeSpent returns the formatted time spent on the task
-func (t *Task) FormattedTimeSpent() string {
+func (t Task) FormattedTimeSpent() string {
 	hours := int(t.TimeSpent.Hours())
 	minutes := int(t.TimeSpent.Minutes()) % 60
 
@@ -62,6 +67,6 @@ func (t *Task) FormattedTimeSpent() string {
 }
 
 // PomodoroProgress returns a string representation of pomodoro progress
-func (t *Task) PomodoroProgress() string {
+func (t Task) PomodoroProgress() string {
 	return fmt.Sprintf("[%d/%d]", t.CompletedPomodoros, t.PlannedPomodoros)
 }

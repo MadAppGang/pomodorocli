@@ -10,19 +10,23 @@ import (
 
 // TaskListView represents the task list component
 type TaskListView struct {
-	taskManager   *model.TaskManager
-	selectedIndex int
-	width         int
-	currentTask   *model.Task // Store reference to current task
+	taskManager    *model.TaskManager
+	selectedIndex  int
+	width          int
+	currentTask    *model.Task // We'll keep this as a pointer since it's just a reference
+	hasCurrentTask bool        // Flag to track if we have a current task
+	currentTaskID  string      // Store the ID of the current task
 }
 
 // NewTaskListView creates a new task list view
 func NewTaskListView(taskManager *model.TaskManager, width int) *TaskListView {
 	return &TaskListView{
-		taskManager:   taskManager,
-		selectedIndex: 0,
-		width:         width,
-		currentTask:   nil,
+		taskManager:    taskManager,
+		selectedIndex:  0,
+		width:          width,
+		currentTask:    nil,
+		hasCurrentTask: false,
+		currentTaskID:  "",
 	}
 }
 
@@ -31,13 +35,27 @@ func (t *TaskListView) SetWidth(width int) {
 	t.width = width
 }
 
-// GetSelectedTask returns the currently selected task, or nil if no tasks
-func (t *TaskListView) GetSelectedTask() *model.Task {
+// GetSelectedTask returns the currently selected task, or empty task if no tasks
+func (t *TaskListView) GetSelectedTask() model.Task {
+	tasks := t.taskManager.FilteredTasks()
+	if len(tasks) == 0 {
+		return model.Task{} // Return an empty task
+	}
+	return tasks[t.selectedIndex%len(tasks)]
+}
+
+// GetSelectedTaskPtr returns a pointer to the currently selected task, or nil if no tasks
+// This is needed for compatibility with code that expects pointers
+func (t *TaskListView) GetSelectedTaskPtr() *model.Task {
 	tasks := t.taskManager.FilteredTasks()
 	if len(tasks) == 0 {
 		return nil
 	}
-	return tasks[t.selectedIndex%len(tasks)]
+
+	// Get a copy of the task
+	task := tasks[t.selectedIndex%len(tasks)]
+	// Return a pointer to it
+	return &task
 }
 
 // MoveSelectionDown moves the selection down in the task list
@@ -54,9 +72,19 @@ func (t *TaskListView) MoveSelectionUp() {
 
 // ToggleSelectedTaskComplete toggles the completion status of the selected task
 func (t *TaskListView) ToggleSelectedTaskComplete() {
-	if selectedTask := t.GetSelectedTask(); selectedTask != nil {
-		selectedTask.ToggleComplete()
+	tasks := t.taskManager.FilteredTasks()
+	if len(tasks) == 0 {
+		return
 	}
+
+	// Get the index of the selected task
+	index := t.selectedIndex % len(tasks)
+	// Get the task
+	task := tasks[index]
+	// Toggle completion
+	task.ToggleComplete()
+	// Update the task in the task manager
+	t.taskManager.UpdateTask(task)
 }
 
 // ToggleShowCompleted toggles showing or hiding completed tasks
@@ -67,13 +95,19 @@ func (t *TaskListView) ToggleShowCompleted() {
 // SetCurrentTask sets the current active task
 func (t *TaskListView) SetCurrentTask(task *model.Task) {
 	t.currentTask = task
+	if task == nil {
+		t.hasCurrentTask = false
+		t.currentTaskID = ""
+	} else {
+		t.hasCurrentTask = true
+		t.currentTaskID = task.ID
+	}
 }
 
 // Render renders the task list component
 func (t *TaskListView) Render() string {
 	// Get content
 	taskControls := t.renderTaskControls()
-	// taskControls := ""
 	tasksContent := t.renderTaskList()
 
 	// Combine the content
@@ -97,7 +131,7 @@ func (t *TaskListView) renderTaskList() string {
 	// Add padding for tasks
 	for i, task := range t.taskManager.FilteredTasks() {
 		isSelected := i == (t.selectedIndex % len(t.taskManager.FilteredTasks()))
-		isCurrentTask := t.currentTask != nil && task.ID == t.currentTask.ID
+		isCurrentTask := t.hasCurrentTask && task.ID == t.currentTaskID
 
 		// Task number and selection indicator
 		var taskNumber string

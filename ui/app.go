@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/jackrudenko/pomodorocli/model"
+	"github.com/jackrudenko/pomodorocli/storage"
 )
 
 // ViewState represents the different views in the application
@@ -47,11 +48,12 @@ const (
 // App is the main application model
 type App struct {
 	// Application state
-	timer       *model.Timer
-	taskManager *model.TaskManager
-	view        ViewState
-	width       int
-	height      int
+	timer          *model.Timer
+	taskManager    *model.TaskManager
+	storageManager *storage.StorageManager
+	view           ViewState
+	width          int
+	height         int
 
 	// Input fields for adding tasks
 	taskInput      textinput.Model
@@ -86,6 +88,18 @@ func NewApp() *App {
 	timer := model.NewTimer()
 	taskManager := model.NewTaskManager()
 
+	// Initialize storage
+	jsonStorage, err := storage.NewJSONTaskStorage("./data/tasks.json")
+	var storageManager *storage.StorageManager
+	if err == nil {
+		storageManager = storage.NewStorageManager(jsonStorage, taskManager)
+		// Load tasks from storage
+		if err := storageManager.LoadTasks(); err != nil {
+			// If loading fails, we'll start with an empty task list
+			fmt.Println("Error loading tasks:", err)
+		}
+	}
+
 	// Initialize the font manager
 	fontManager, err := NewFontManager()
 	if err != nil {
@@ -97,6 +111,7 @@ func NewApp() *App {
 	app := &App{
 		timer:          timer,
 		taskManager:    taskManager,
+		storageManager: storageManager,
 		view:           MainView,
 		width:          width,
 		height:         height,
@@ -121,10 +136,20 @@ func NewApp() *App {
 
 // Init initializes the Bubble Tea program
 func (a *App) Init() tea.Cmd {
-	// Add some sample tasks for demonstration
-	a.taskManager.AddTask("Work on design concept", 4)
-	a.taskManager.AddTask("Test the prototype with users", 3)
-	a.taskManager.AddTask("Create a design concept for the Evergen App / Link", 3)
+	// Only add sample tasks if we don't have any (i.e., no tasks were loaded from storage)
+	if len(a.taskManager.GetTasks()) == 0 {
+		// Add some sample tasks for demonstration
+		a.taskManager.AddTask("Work on design concept", 4)
+		a.taskManager.AddTask("Test the prototype with users", 3)
+		a.taskManager.AddTask("Create a design concept for the Evergen App / Link", 3)
+
+		// Save the initial tasks
+		if a.storageManager != nil {
+			if err := a.storageManager.SaveTasks(); err != nil {
+				fmt.Println("Error saving initial tasks:", err)
+			}
+		}
+	}
 
 	// Start the timer ticker and request initial window size
 	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
@@ -166,7 +191,16 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch a.view {
 		case MainView:
-			return a.updateMainView(msg)
+			model, cmd := a.updateMainView(msg)
+			// Save tasks after certain actions in main view
+			if msg.String() == " " { // Space toggles task completion
+				if a.storageManager != nil {
+					if err := a.storageManager.SaveTasks(); err != nil {
+						fmt.Println("Error saving tasks:", err)
+					}
+				}
+			}
+			return model, cmd
 		case AddTaskView:
 			return a.updateAddTaskView(msg)
 		case SettingsView:
@@ -189,10 +223,10 @@ func (a *App) updateMainView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			a.timer.Stop()
 		} else if a.timer.State == model.TimerStopped {
 			// If we have selected task, set it as current and start
-			if selectedTask := a.taskListView.GetSelectedTask(); selectedTask != nil {
-				a.timer.SetCurrentTask(selectedTask)
+			if selectedTaskPtr := a.taskListView.GetSelectedTaskPtr(); selectedTaskPtr != nil {
+				a.timer.SetCurrentTask(*selectedTaskPtr)
 				// Update task list view with current task
-				a.taskListView.SetCurrentTask(selectedTask)
+				a.taskListView.SetCurrentTask(selectedTaskPtr)
 				a.timer.Start()
 			}
 		}
@@ -225,10 +259,10 @@ func (a *App) updateMainView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "enter":
 		// Select current task
-		if selectedTask := a.taskListView.GetSelectedTask(); selectedTask != nil {
-			a.timer.SetCurrentTask(selectedTask)
+		if selectedTaskPtr := a.taskListView.GetSelectedTaskPtr(); selectedTaskPtr != nil {
+			a.timer.SetCurrentTask(*selectedTaskPtr)
 			// Update task list view with current task
-			a.taskListView.SetCurrentTask(selectedTask)
+			a.taskListView.SetCurrentTask(selectedTaskPtr)
 			a.timer.Start()
 		}
 
@@ -287,6 +321,14 @@ func (a *App) updateAddTaskView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 
 			a.taskManager.AddTask(description, pomodoros)
+
+			// Save tasks after adding a new one
+			if a.storageManager != nil {
+				if err := a.storageManager.SaveTasks(); err != nil {
+					fmt.Println("Error saving tasks:", err)
+				}
+			}
+
 			a.view = MainView
 			a.inputting = false
 			a.taskInput.Reset()
@@ -510,18 +552,23 @@ func debugStyle() lipgloss.Style {
 		Bold(true)
 }
 
-// SetTimerOnlyMode sets the application to timer-only mode (debug mode)
-func (a *App) SetTimerOnlyMode(enabled bool) {
-	if enabled {
+// SetDebugMode sets the debug mode for the app
+func (a *App) SetDebugMode(mode DebugMode) {
+	a.debugMode = mode
+}
+
+// SetTimerOnlyMode sets the app to show only the timer component
+func (a *App) SetTimerOnlyMode(timerOnly bool) {
+	if timerOnly {
 		a.debugMode = TimerDebug
 	} else {
 		a.debugMode = NoDebug
 	}
 }
 
-// SetTaskListOnlyMode sets the application to task-list-only mode
-func (a *App) SetTaskListOnlyMode(enabled bool) {
-	if enabled {
+// SetTaskListOnlyMode sets the app to show only the task list component
+func (a *App) SetTaskListOnlyMode(tasksOnly bool) {
+	if tasksOnly {
 		a.debugMode = TaskListDebug
 	} else {
 		a.debugMode = NoDebug

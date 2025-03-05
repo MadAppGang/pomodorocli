@@ -42,16 +42,7 @@ func main() {
 
 	// Handle print mode - render the view and exit without running the interactive program
 	if *printMode {
-		// Render and print the appropriate view
-		var output string
-		if *timerOnly {
-			output = app.RenderTimerView()
-		} else if *tasksOnly {
-			output = app.RenderTaskListView()
-		} else {
-			output = app.RenderMainView()
-		}
-		fmt.Print(output)
+		fmt.Println(app.View())
 		os.Exit(0)
 	}
 
