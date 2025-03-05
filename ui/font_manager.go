@@ -41,18 +41,24 @@ func NewFontManager() (*FontManager, error) {
 	for _, fontFile := range fontFiles {
 		if !fontFile.IsDir() && strings.HasSuffix(fontFile.Name(), ".flf") {
 			fontName := strings.TrimSuffix(fontFile.Name(), ".flf")
-			fontData, err := fontFS.ReadFile("fonts/" + fontFile.Name())
+			fontPath := "fonts/" + fontFile.Name()
+
+			fontData, err := fontFS.ReadFile(fontPath)
 			if err != nil {
+				fmt.Printf("Error reading font file %s: %v\n", fontPath, err)
 				continue // Skip this font if it can't be read
 			}
 
 			font, err := parseFigletFont(fontName, string(fontData))
 			if err != nil {
+				fmt.Printf("Error parsing font %s: %v\n", fontName, err)
 				continue // Skip this font if it can't be parsed
 			}
 
-			manager.Fonts[fontName] = font
-			manager.FontNames = append(manager.FontNames, fontName)
+			// Store with normalized key for consistent lookup
+			normalizedName := strings.ReplaceAll(fontName, " ", "_")
+			manager.Fonts[normalizedName] = font
+			manager.FontNames = append(manager.FontNames, normalizedName)
 		}
 	}
 
@@ -184,18 +190,29 @@ func parseFigletFont(name string, data string) (*FigletFont, error) {
 		// Hardblank replacement
 		line = strings.ReplaceAll(line, string(hardblank), " ")
 
-		// End marker for character
+		// Process end markers for character definition
 		if strings.HasSuffix(line, "@@") {
-			charPattern = append(charPattern, strings.TrimSuffix(line, "@@"))
+			// Complete character definition with @@
+			line = strings.TrimSuffix(line, "@@")
+
+			// Replace placeholder $ characters with spaces
+			line = strings.ReplaceAll(line, "$", " ")
+
+			charPattern = append(charPattern, line)
 			font.CharPatterns[currentChar] = charPattern
 			charPattern = make([]string, 0, height)
 			currentChar++
 			continue
-		}
+		} else if strings.HasSuffix(line, "@") {
+			// Line ends with @ marker
+			line = strings.TrimSuffix(line, "@")
 
-		// End marker for character (alternative format)
-		if strings.HasSuffix(line, "@") {
-			charPattern = append(charPattern, strings.TrimSuffix(line, "@"))
+			// Replace placeholder $ characters with spaces
+			line = strings.ReplaceAll(line, "$", " ")
+
+			charPattern = append(charPattern, line)
+
+			// If we've collected all lines for this character, store it and move to next
 			if len(charPattern) >= height {
 				font.CharPatterns[currentChar] = charPattern
 				charPattern = make([]string, 0, height)
@@ -204,6 +221,9 @@ func parseFigletFont(name string, data string) (*FigletFont, error) {
 			continue
 		}
 
+		// Regular line (shouldn't normally happen in well-formed FLF files)
+		// Replace any $ placeholders and add to pattern
+		line = strings.ReplaceAll(line, "$", " ")
 		charPattern = append(charPattern, line)
 	}
 

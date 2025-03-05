@@ -340,62 +340,7 @@ func (a *App) mainView() string {
 
 	// Debug mode: Timer Only or TaskList Only
 	if a.debugMode != NoDebug {
-		var debugTitle, debugContent, exitMessage string
-
-		if a.debugMode == TimerDebug {
-			debugTitle = "Debug Mode: Timer Component Only"
-
-			// Render timer view
-			timerSection := a.timerView.Render()
-
-			// Center the timer horizontally and vertically
-			verticalPadding := (a.height - 20) / 2 // Estimate height of timer display
-			if verticalPadding < 0 {
-				verticalPadding = 0
-			}
-
-			// Add vertical padding
-			paddedTimer := strings.Repeat("\n", verticalPadding) + timerSection
-
-			// Center the timer horizontally
-			debugContent = lipgloss.PlaceHorizontal(a.width, lipgloss.Center, paddedTimer)
-
-		} else if a.debugMode == TaskListDebug {
-			debugTitle = "Debug Mode: Task List Component Only"
-
-			// Render task list view with background
-			tasksContent := a.taskListView.Render()
-
-			// Apply consistent background styling
-			containerStyle := lipgloss.NewStyle().
-				Background(ColorBoxBackground).
-				Padding(1, 2).
-				Width(a.width / 2) // Make it half the width for better readability
-
-			// Apply styling and center
-			styledTaskList := containerStyle.Render(tasksContent)
-
-			// Center the task list horizontally and add some vertical padding
-			verticalPadding := (a.height - 30) / 4 // Less padding than timer as task list is taller
-			if verticalPadding < 0 {
-				verticalPadding = 0
-			}
-
-			paddedTaskList := strings.Repeat("\n", verticalPadding) + styledTaskList
-			debugContent = lipgloss.PlaceHorizontal(a.width, lipgloss.Center, paddedTaskList)
-		}
-
-		// Render debug title and content
-		builder.WriteString(debugStyle().Render(debugTitle))
-		builder.WriteString("\n\n")
-		builder.WriteString(debugContent)
-		builder.WriteString("\n\n")
-
-		// Exit message
-		exitMessage = debugStyle().Render("Press [D] to cycle debug modes")
-		builder.WriteString(lipgloss.PlaceHorizontal(a.width, lipgloss.Center, exitMessage))
-
-		return builder.String() // No need for AppStyle here
+		return a.debugView()
 	}
 
 	// Regular rendering for normal mode
@@ -447,6 +392,66 @@ func (a *App) mainView() string {
 	builder.WriteString(debugStyle().Render("Press [D] to enter debug mode"))
 
 	return AppStyle.Render(builder.String())
+}
+
+func (a *App) debugView() string {
+	var builder strings.Builder
+	var debugTitle, debugContent, exitMessage string
+
+	if a.debugMode == TimerDebug {
+		debugTitle = "Debug Mode: Timer Component Only"
+
+		// Render timer view
+		timerSection := a.timerView.Render()
+
+		// Center the timer horizontally and vertically
+		verticalPadding := (a.height - 20) / 2 // Estimate height of timer display
+		if verticalPadding < 0 {
+			verticalPadding = 0
+		}
+
+		// Add vertical padding
+		paddedTimer := strings.Repeat("\n", verticalPadding) + timerSection
+
+		// Center the timer horizontally
+		debugContent = lipgloss.PlaceHorizontal(a.width, lipgloss.Center, paddedTimer)
+
+	} else if a.debugMode == TaskListDebug {
+		debugTitle = "Debug Mode: Task List Component Only"
+
+		// Render task list view with background
+		tasksContent := a.taskListView.Render()
+
+		// Apply consistent background styling
+		containerStyle := lipgloss.NewStyle().
+			Background(ColorBoxBackground).
+			Padding(1, 2).
+			Width(a.width / 2) // Make it half the width for better readability
+
+		// Apply styling and center
+		styledTaskList := containerStyle.Render(tasksContent)
+
+		// Center the task list horizontally and add some vertical padding
+		verticalPadding := (a.height - 30) / 4 // Less padding than timer as task list is taller
+		if verticalPadding < 0 {
+			verticalPadding = 0
+		}
+
+		paddedTaskList := strings.Repeat("\n", verticalPadding) + styledTaskList
+		debugContent = lipgloss.PlaceHorizontal(a.width, lipgloss.Center, paddedTaskList)
+	}
+
+	// Render debug title and content
+	builder.WriteString(debugStyle().Render(debugTitle))
+	builder.WriteString("\n\n")
+	builder.WriteString(debugContent)
+	builder.WriteString("\n\n")
+
+	// Exit message
+	exitMessage = debugStyle().Render("Press [D] to cycle debug modes")
+	builder.WriteString(lipgloss.PlaceHorizontal(a.width, lipgloss.Center, exitMessage))
+
+	return builder.String() // No need for AppStyle here
 }
 
 // addTaskView renders the view for adding a new task

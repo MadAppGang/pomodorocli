@@ -42,6 +42,7 @@ var (
 	ColorTasksHeader   = lipgloss.Color("#7BC0AB")
 	ColorHideCompleted = lipgloss.Color("#C1B476")
 	ColorAddNewTask    = lipgloss.Color("#474433")
+	ColorGrayText      = lipgloss.Color("#808183")
 )
 
 // Styles for different UI components

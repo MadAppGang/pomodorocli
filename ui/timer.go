@@ -56,9 +56,10 @@ func (t *TimerView) Render() string {
 	var fontInfo string
 	if t.fontManager != nil {
 		fontInfo = lipgloss.NewStyle().
-			Foreground(ColorText).
+			Foreground(ColorGrayText).
 			Align(lipgloss.Center).
-			Render("Font: " + t.fontManager.CurrentFont + " (Press F to change)")
+			PaddingBottom(1).
+			Render("Font: " + t.fontManager.CurrentFont + " [F]")
 	}
 
 	// Render each component without background
